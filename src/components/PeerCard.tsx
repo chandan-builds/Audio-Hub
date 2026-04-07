@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import type { Key } from "react";
 import { motion } from "motion/react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { PeerData } from "@/src/hooks/useWebRTC";
 
 interface PeerCardProps {
+  key?: Key;
   peer: PeerData;
   isLocal?: boolean;
   localUserName?: string;
@@ -82,6 +84,18 @@ export function PeerCard({
   useEffect(() => {
     if (audioRef.current && stream && !isLocal) {
       audioRef.current.srcObject = stream;
+      audioRef.current.volume = 1.0;
+      // Explicitly play — autoplay may be blocked by browser policy
+      audioRef.current.play().catch((err) => {
+        console.warn("[Audio] Autoplay blocked, will retry on user interaction:", err);
+        const resumeAudio = () => {
+          audioRef.current?.play().catch(() => {});
+          document.removeEventListener("click", resumeAudio);
+          document.removeEventListener("keydown", resumeAudio);
+        };
+        document.addEventListener("click", resumeAudio);
+        document.addEventListener("keydown", resumeAudio);
+      });
     }
   }, [stream, isLocal]);
 

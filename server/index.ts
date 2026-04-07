@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
+import cron from "node-cron";
 
 // --- Types ---
 interface RoomUser {
@@ -295,4 +296,19 @@ const PORT = parseInt(process.env.PORT || "10000", 10);
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Audio Hub server running on port ${PORT}`);
   console.log(`📡 CORS origins: ${ALLOWED_ORIGINS.join(", ")}`);
+
+  // --- Keep-Alive Cron (Render free tier spins down after 15 min) ---
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      const res = await fetch(`${SELF_URL}/health`);
+      const data = await res.json();
+      console.log(`[Cron] Keep-alive ping → ${res.status}`, data);
+    } catch (err) {
+      console.warn("[Cron] Keep-alive ping failed:", (err as Error).message);
+    }
+  });
+
+  console.log(`⏰ Keep-alive cron scheduled (every 5 min → ${SELF_URL}/health)`);
 });

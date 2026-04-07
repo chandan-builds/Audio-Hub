@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { KeyboardEvent } from "react";
 import {
   Radio, Globe, Shield, ChevronRight, Copy, Check, Sparkles, Zap, Headphones
 } from "lucide-react";
@@ -50,7 +51,7 @@ export function LobbyScreen({ onJoinRoom }: LobbyScreenProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter") handleJoin();
   };
 

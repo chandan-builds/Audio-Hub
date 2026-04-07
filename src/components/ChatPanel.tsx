@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import type { KeyboardEvent } from "react";
 import { Send, MessageSquare, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export function ChatPanel({ messages, onSendMessage, isOpen, onToggle }: ChatPan
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();

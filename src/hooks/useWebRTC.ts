@@ -83,6 +83,10 @@ export function useWebRTC({
   const iceServersRef = useRef<RTCIceServer[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserNodesRef = useRef<Map<string, AnalyserNode>>(new Map());
+  // Buffer ICE candidates that arrive before remote description is set
+  const iceCandidateBufferRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  // Track whether we are currently negotiating to prevent glare
+  const makingOfferRef = useRef<Map<string, boolean>>(new Map());
 
   const addActivity = useCallback((event: ActivityEvent) => {
     setActivityLog((prev) => [event, ...prev].slice(0, 50));
@@ -120,6 +124,22 @@ export function useWebRTC({
     []
   );
 
+  // Flush buffered ICE candidates for a peer
+  const flushIceCandidates = useCallback(async (peerId: string, pc: RTCPeerConnection) => {
+    const buffered = iceCandidateBufferRef.current.get(peerId);
+    if (buffered && buffered.length > 0) {
+      console.log(`[ICE] Flushing ${buffered.length} buffered candidates for ${peerId}`);
+      for (const candidate of buffered) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn("[ICE] Error adding buffered candidate:", err);
+        }
+      }
+      iceCandidateBufferRef.current.set(peerId, []);
+    }
+  }, []);
+
   // Create peer connection
   const createPeerConnection = useCallback(
     (
@@ -132,11 +152,23 @@ export function useWebRTC({
         iceCandidatePoolSize: 10,
       });
 
-      // Add local tracks
+      // Initialize ICE candidate buffer for this peer
+      iceCandidateBufferRef.current.set(targetUserId, []);
+      makingOfferRef.current.set(targetUserId, false);
+
+      // Add local audio tracks
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => {
           pc.addTrack(track, localStreamRef.current!);
         });
+      }
+
+      // Also add screen share track if we're currently sharing
+      if (screenStreamRef.current) {
+        const videoTrack = screenStreamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+          pc.addTrack(videoTrack, screenStreamRef.current);
+        }
       }
 
       // Handle ICE candidates
@@ -154,6 +186,7 @@ export function useWebRTC({
 
       // Handle remote stream
       pc.ontrack = (event) => {
+        console.log(`[WebRTC] ontrack from ${targetUserName}, kind=${event.track.kind}, streams=${event.streams.length}`);
         const stream = event.streams[0];
         if (stream) {
           setupAudioAnalyser(stream, targetUserId);
@@ -182,6 +215,35 @@ export function useWebRTC({
             connectionState: pc.iceConnectionState,
             audioLevel: 0,
           });
+        }
+      };
+
+      // Handle renegotiation needed (triggered when tracks are added/removed)
+      pc.onnegotiationneeded = async () => {
+        try {
+          makingOfferRef.current.set(targetUserId, true);
+          console.log(`[WebRTC] Renegotiation needed with ${targetUserName}`);
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+          });
+          const modifiedSdp = setOpusLowLatency(offer.sdp || "");
+          const modifiedOffer = new RTCSessionDescription({
+            type: offer.type,
+            sdp: modifiedSdp,
+          });
+          await pc.setLocalDescription(modifiedOffer);
+          socketRef.current?.emit("signal", {
+            to: targetUserId,
+            from: userId,
+            fromName: userName,
+            signal: pc.localDescription,
+            type: "offer",
+          });
+        } catch (err) {
+          console.error("[WebRTC] Error during renegotiation:", err);
+        } finally {
+          makingOfferRef.current.set(targetUserId, false);
         }
       };
 
@@ -217,36 +279,8 @@ export function useWebRTC({
         }
       };
 
-      // If initiator, create and send offer
-      if (isInitiator) {
-        pc.createOffer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true,
-        })
-          .then((offer) => {
-            // Apply Opus low-latency SDP munging
-            const modifiedSdp = setOpusLowLatency(offer.sdp || "");
-            const modifiedOffer = new RTCSessionDescription({
-              type: offer.type,
-              sdp: modifiedSdp,
-            });
-            return pc.setLocalDescription(modifiedOffer);
-          })
-          .then(() => {
-            socketRef.current?.emit("signal", {
-              to: targetUserId,
-              from: userId,
-              fromName: userName,
-              signal: pc.localDescription,
-              type: "offer",
-            });
-          })
-          .catch((err) =>
-            console.error("[WebRTC] Error creating offer:", err)
-          );
-      }
-
-      // Store peer data
+      // Store peer data (onnegotiationneeded will fire automatically
+      // after addTrack, so we don't manually create an offer here)
       const peerData: PeerData = {
         userId: targetUserId,
         userName: targetUserName,
@@ -276,6 +310,8 @@ export function useWebRTC({
       peer.connection.close();
       peersRef.current.delete(peerId);
       analyserNodesRef.current.delete(peerId);
+      iceCandidateBufferRef.current.delete(peerId);
+      makingOfferRef.current.delete(peerId);
       setPeers((prev) => {
         const updated = new Map(prev);
         updated.delete(peerId);
@@ -369,7 +405,9 @@ export function useWebRTC({
         setIsConnected(false);
       });
 
-      // Handle existing users in room
+      // Handle existing users in room — WE are the new joiner,
+      // so we create peer connections but do NOT initiate offers.
+      // The existing users will send us offers via "user-connected".
       socket.on(
         "room-users",
         (
@@ -382,7 +420,8 @@ export function useWebRTC({
         ) => {
           if (!mounted) return;
           users.forEach((user) => {
-            createPeerConnection(user.userId, user.userName, true);
+            // isInitiator = false — we wait for their offer
+            createPeerConnection(user.userId, user.userName, false);
             addActivity({
               type: "join",
               userName: user.userName,
@@ -392,10 +431,12 @@ export function useWebRTC({
         }
       );
 
-      // Handle new user connecting
+      // Handle new user connecting — WE are already in the room,
+      // so we are the initiator and create an offer for the new joiner.
       socket.on("user-connected", (newUserId: string, newUserName: string) => {
         if (!mounted) return;
         console.log(`[Room] ${newUserName} connected`);
+        // isInitiator = true — onnegotiationneeded will fire and send offer
         createPeerConnection(newUserId, newUserName, true);
         addActivity({
           type: "join",
@@ -424,12 +465,27 @@ export function useWebRTC({
           let pc = peer?.connection;
 
           if (!pc) {
+            // We received a signal from someone we don't have a connection to.
+            // Create a non-initiator connection to accept their offer.
             pc = createPeerConnection(from, fromName, false);
           }
 
           try {
             if (type === "offer") {
+              // Handle offer glare: if we're also making an offer, use polite peer pattern
+              const offerCollision = makingOfferRef.current.get(from) ||
+                pc.signalingState !== "stable";
+
+              if (offerCollision) {
+                // We are the "polite" peer — rollback and accept their offer
+                console.log(`[WebRTC] Offer collision with ${fromName}, rolling back`);
+                await pc.setLocalDescription({ type: "rollback" });
+              }
+
               await pc.setRemoteDescription(new RTCSessionDescription(signal));
+              // Flush any buffered ICE candidates now that remote description is set
+              await flushIceCandidates(from, pc);
+
               const answer = await pc.createAnswer();
               // Apply Opus low-latency SDP munging
               const modifiedSdp = setOpusLowLatency(answer.sdp || "");
@@ -447,9 +503,17 @@ export function useWebRTC({
               });
             } else if (type === "answer") {
               await pc.setRemoteDescription(new RTCSessionDescription(signal));
+              // Flush any buffered ICE candidates
+              await flushIceCandidates(from, pc);
             } else if (type === "candidate") {
-              if (pc.remoteDescription) {
+              // Buffer the candidate if remote description isn't set yet
+              if (pc.remoteDescription && pc.remoteDescription.type) {
                 await pc.addIceCandidate(new RTCIceCandidate(signal));
+              } else {
+                console.log(`[ICE] Buffering candidate from ${fromName} (no remote description yet)`);
+                const buffer = iceCandidateBufferRef.current.get(from) || [];
+                buffer.push(signal);
+                iceCandidateBufferRef.current.set(from, buffer);
               }
             }
           } catch (err) {
@@ -548,6 +612,10 @@ export function useWebRTC({
       audioContextRef.current?.close();
       analyserNodesRef.current.clear();
 
+      // Cleanup buffers
+      iceCandidateBufferRef.current.clear();
+      makingOfferRef.current.clear();
+
       // Disconnect socket
       socketRef.current?.disconnect();
     };
@@ -561,6 +629,7 @@ export function useWebRTC({
     cleanupPeer,
     setupAudioAnalyser,
     addActivity,
+    flushIceCandidates,
   ]);
 
   // Toggle mute
@@ -584,6 +653,7 @@ export function useWebRTC({
       screenStreamRef.current = null;
 
       // Remove video senders from all peers
+      // (onnegotiationneeded will fire automatically and renegotiate)
       peersRef.current.forEach((peer) => {
         const senders = peer.connection.getSenders();
         senders.forEach((sender) => {
@@ -605,6 +675,7 @@ export function useWebRTC({
         screenStreamRef.current = screenStream;
 
         // Add video track to all peer connections
+        // (onnegotiationneeded will fire automatically and renegotiate)
         const videoTrack = screenStream.getVideoTracks()[0];
         peersRef.current.forEach((peer) => {
           peer.connection.addTrack(videoTrack, screenStream);
@@ -663,6 +734,8 @@ export function useWebRTC({
     peersRef.current.clear();
     audioContextRef.current?.close();
     analyserNodesRef.current.clear();
+    iceCandidateBufferRef.current.clear();
+    makingOfferRef.current.clear();
     socketRef.current?.disconnect();
     setPeers(new Map());
     setLocalStream(null);
