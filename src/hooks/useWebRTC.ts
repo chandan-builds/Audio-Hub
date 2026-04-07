@@ -6,6 +6,7 @@ export interface PeerData {
   userId: string;
   userName: string;
   stream: MediaStream | null;
+  screenStream: MediaStream | null;
   connection: RTCPeerConnection;
   isMuted: boolean;
   isSharingScreen: boolean;
@@ -34,9 +35,10 @@ interface UseWebRTCOptions {
   serverUrl: string;
 }
 
-interface UseWebRTCReturn {
+export interface UseWebRTCReturn {
   peers: Map<string, PeerData>;
   localStream: MediaStream | null;
+  localScreenStream: MediaStream | null;
   isMuted: boolean;
   isSharingScreen: boolean;
   isConnected: boolean;
@@ -204,19 +206,22 @@ export function useWebRTC({
         }
       };
 
-      // Handle remote stream
+      // Handle remote tracks — audio goes to stream, video goes to screenStream
       pc.ontrack = (event) => {
         console.log(`[WebRTC] ontrack from ${targetUserName}, kind=${event.track.kind}, streams=${event.streams.length}`);
-        const stream = event.streams[0];
-        if (stream) {
-          setupAudioAnalyser(stream, targetUserId);
+        const incomingStream = event.streams[0];
+        if (!incomingStream) return;
+
+        if (event.track.kind === "audio") {
+          setupAudioAnalyser(incomingStream, targetUserId);
           setPeers((prev) => {
             const updated = new Map<string, PeerData>(prev);
             const existing = updated.get(targetUserId);
             updated.set(targetUserId, {
               userId: targetUserId,
               userName: targetUserName,
-              stream,
+              stream: incomingStream,
+              screenStream: existing?.screenStream ?? null,
               connection: pc,
               isMuted: existing?.isMuted ?? false,
               isSharingScreen: existing?.isSharingScreen ?? false,
@@ -225,16 +230,64 @@ export function useWebRTC({
             });
             return updated;
           });
+          const existingRef = peersRef.current.get(targetUserId);
           peersRef.current.set(targetUserId, {
             userId: targetUserId,
             userName: targetUserName,
-            stream,
+            stream: incomingStream,
+            screenStream: existingRef?.screenStream ?? null,
             connection: pc,
-            isMuted: false,
-            isSharingScreen: false,
+            isMuted: existingRef?.isMuted ?? false,
+            isSharingScreen: existingRef?.isSharingScreen ?? false,
             connectionState: pc.iceConnectionState,
             audioLevel: 0,
           });
+        } else if (event.track.kind === "video") {
+          // Screen share video track
+          setPeers((prev) => {
+            const updated = new Map<string, PeerData>(prev);
+            const existing = updated.get(targetUserId);
+            updated.set(targetUserId, {
+              userId: targetUserId,
+              userName: targetUserName,
+              stream: existing?.stream ?? null,
+              screenStream: incomingStream,
+              connection: pc,
+              isMuted: existing?.isMuted ?? false,
+              isSharingScreen: true,
+              connectionState: pc.iceConnectionState,
+              audioLevel: existing?.audioLevel ?? 0,
+            });
+            return updated;
+          });
+          const existingRef = peersRef.current.get(targetUserId);
+          peersRef.current.set(targetUserId, {
+            userId: targetUserId,
+            userName: targetUserName,
+            stream: existingRef?.stream ?? null,
+            screenStream: incomingStream,
+            connection: pc,
+            isMuted: existingRef?.isMuted ?? false,
+            isSharingScreen: true,
+            connectionState: pc.iceConnectionState,
+            audioLevel: existingRef?.audioLevel ?? 0,
+          });
+
+          // When the video track ends (remote stops sharing), clear screenStream
+          event.track.onended = () => {
+            setPeers((prev) => {
+              const updated = new Map<string, PeerData>(prev);
+              const existing = updated.get(targetUserId);
+              if (existing) {
+                updated.set(targetUserId, { ...existing, screenStream: null, isSharingScreen: false });
+              }
+              return updated;
+            });
+            const ref = peersRef.current.get(targetUserId);
+            if (ref) {
+              peersRef.current.set(targetUserId, { ...ref, screenStream: null, isSharingScreen: false });
+            }
+          };
         }
       };
 
@@ -323,6 +376,7 @@ export function useWebRTC({
         userId: targetUserId,
         userName: targetUserName,
         stream: null,
+        screenStream: null,
         connection: pc,
         isMuted: false,
         isSharingScreen: false,
@@ -839,6 +893,7 @@ export function useWebRTC({
   return {
     peers,
     localStream,
+    localScreenStream: screenStreamRef.current,
     isMuted,
     isSharingScreen,
     isConnected,

@@ -61,6 +61,7 @@ export default function App() {
             userName={userName}
             peers={webrtc.peers}
             localStream={webrtc.localStream}
+            localScreenStream={webrtc.localScreenStream}
             isMuted={webrtc.isMuted}
             isSharingScreen={webrtc.isSharingScreen}
             isConnected={webrtc.isConnected}

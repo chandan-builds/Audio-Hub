@@ -69,21 +69,22 @@ export function PeerCard({
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const name = isLocal ? localUserName || "You" : peer.userName;
-  const stream = isLocal ? localStream : peer.stream;
+  const audioStream = isLocal ? localStream : peer.stream;
+  const videoStream = peer.screenStream;
   const muted = isLocal ? isMuted : peer.isMuted;
   const sharing = isLocal ? isSharingScreen : peer.isSharingScreen;
-  const hasVideo = stream ? stream.getVideoTracks().length > 0 : false;
+  const hasVideo = !!videoStream;
   const audioLevel = isLocal ? 0 : peer.audioLevel;
 
   useEffect(() => {
-    if (videoRef.current && stream && hasVideo) {
-      videoRef.current.srcObject = stream;
+    if (videoRef.current && videoStream) {
+      videoRef.current.srcObject = videoStream;
     }
-  }, [stream, hasVideo]);
+  }, [videoStream]);
 
   useEffect(() => {
-    if (audioRef.current && stream && !isLocal) {
-      audioRef.current.srcObject = stream;
+    if (audioRef.current && audioStream && !isLocal) {
+      audioRef.current.srcObject = audioStream;
       audioRef.current.volume = 1.0;
       // Explicitly play — autoplay may be blocked by browser policy
       audioRef.current.play().catch((err) => {
@@ -97,7 +98,7 @@ export function PeerCard({
         document.addEventListener("keydown", resumeAudio);
       });
     }
-  }, [stream, isLocal]);
+  }, [audioStream, isLocal]);
 
   return (
     <motion.div

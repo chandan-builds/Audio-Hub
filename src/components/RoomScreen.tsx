@@ -21,6 +21,7 @@ interface RoomScreenProps {
   userName: string;
   peers: Map<string, PeerData>;
   localStream: MediaStream | null;
+  localScreenStream: MediaStream | null;
   isMuted: boolean;
   isSharingScreen: boolean;
   isConnected: boolean;
@@ -39,6 +40,7 @@ export function RoomScreen({
   userName,
   peers,
   localStream,
+  localScreenStream,
   isMuted,
   isSharingScreen,
   isConnected,
@@ -221,6 +223,7 @@ export function RoomScreen({
                   userId: "local",
                   userName,
                   stream: localStream,
+                  screenStream: localScreenStream,
                   connection: null as any,
                   isMuted,
                   isSharingScreen,
