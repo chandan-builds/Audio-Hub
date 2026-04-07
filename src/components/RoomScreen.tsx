@@ -60,7 +60,7 @@ export function RoomScreen({
   const peerArray = Array.from(peers.entries());
 
   // Find screen sharer for focus mode
-  const screenSharer = peerArray.find(([_, p]) => p.isSharingScreen && p.stream?.getVideoTracks().length);
+  const screenSharer = peerArray.find(([_, p]) => p.isSharingScreen && p.screenStream);
 
   const handleCopyRoomId = () => {
     const link = `${window.location.origin}?room=${roomId}`;
@@ -175,8 +175,8 @@ export function RoomScreen({
                     autoPlay
                     playsInline
                     ref={(el) => {
-                      if (el && screenSharer[1].stream) {
-                        el.srcObject = screenSharer[1].stream;
+                      if (el && screenSharer[1].screenStream) {
+                        el.srcObject = screenSharer[1].screenStream;
                       }
                     }}
                     className="w-full h-full object-contain"
@@ -189,7 +189,7 @@ export function RoomScreen({
             )}
 
             {/* Screen share from local */}
-            {isSharingScreen && localStream && localStream.getVideoTracks().length > 0 && !screenSharer && (
+            {isSharingScreen && localScreenStream && !screenSharer && (
               <div className="mb-6">
                 <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl shadow-black/50">
                   <video
@@ -197,8 +197,8 @@ export function RoomScreen({
                     muted
                     playsInline
                     ref={(el) => {
-                      if (el && localStream) {
-                        el.srcObject = localStream;
+                      if (el && localScreenStream) {
+                        el.srcObject = localScreenStream;
                       }
                     }}
                     className="w-full h-full object-contain"
