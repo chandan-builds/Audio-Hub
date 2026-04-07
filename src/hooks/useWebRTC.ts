@@ -87,6 +87,8 @@ export function useWebRTC({
   const iceCandidateBufferRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   // Track whether we are currently negotiating to prevent glare
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
+  // Track whether initial negotiation is complete (so renegotiation knows it can send offers)
+  const negotiationDoneRef = useRef<Map<string, boolean>>(new Map());
 
   const addActivity = useCallback((event: ActivityEvent) => {
     setActivityLog((prev) => [event, ...prev].slice(0, 50));
@@ -140,6 +142,23 @@ export function useWebRTC({
     }
   }, []);
 
+  const cleanupPeer = useCallback((peerId: string) => {
+    const peer = peersRef.current.get(peerId);
+    if (peer) {
+      peer.connection.close();
+      peersRef.current.delete(peerId);
+      analyserNodesRef.current.delete(peerId);
+      iceCandidateBufferRef.current.delete(peerId);
+      makingOfferRef.current.delete(peerId);
+      negotiationDoneRef.current.delete(peerId);
+      setPeers((prev) => {
+        const updated = new Map(prev);
+        updated.delete(peerId);
+        return updated;
+      });
+    }
+  }, []);
+
   // Create peer connection
   const createPeerConnection = useCallback(
     (
@@ -152,9 +171,10 @@ export function useWebRTC({
         iceCandidatePoolSize: 10,
       });
 
-      // Initialize ICE candidate buffer for this peer
+      // Initialize state for this peer
       iceCandidateBufferRef.current.set(targetUserId, []);
       makingOfferRef.current.set(targetUserId, false);
+      negotiationDoneRef.current.set(targetUserId, false);
 
       // Add local audio tracks
       if (localStreamRef.current) {
@@ -218,21 +238,36 @@ export function useWebRTC({
         }
       };
 
-      // Handle renegotiation needed (triggered when tracks are added/removed)
+      // onnegotiationneeded — ONLY the initiator sends the initial offer.
+      // After the first negotiation is complete, either side can renegotiate
+      // (e.g. when adding/removing screen share tracks).
       pc.onnegotiationneeded = async () => {
+        const alreadyNegotiated = negotiationDoneRef.current.get(targetUserId);
+
+        if (!isInitiator && !alreadyNegotiated) {
+          // Non-initiator during initial setup — DO NOT send an offer.
+          // The initiator will send us an offer and we'll respond with an answer.
+          console.log(`[WebRTC] Skipping onnegotiationneeded (non-initiator, initial) for ${targetUserName}`);
+          return;
+        }
+
         try {
           makingOfferRef.current.set(targetUserId, true);
-          console.log(`[WebRTC] Renegotiation needed with ${targetUserName}`);
+          console.log(`[WebRTC] Sending offer to ${targetUserName} (initiator=${isInitiator}, renegotiation=${alreadyNegotiated})`);
           const offer = await pc.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true,
           });
+          // If signaling state changed while we were creating the offer, bail out
+          if (pc.signalingState !== "stable") {
+            console.log(`[WebRTC] Signaling state changed during createOffer, aborting`);
+            return;
+          }
           const modifiedSdp = setOpusLowLatency(offer.sdp || "");
-          const modifiedOffer = new RTCSessionDescription({
+          await pc.setLocalDescription(new RTCSessionDescription({
             type: offer.type,
             sdp: modifiedSdp,
-          });
-          await pc.setLocalDescription(modifiedOffer);
+          }));
           socketRef.current?.emit("signal", {
             to: targetUserId,
             from: userId,
@@ -241,7 +276,7 @@ export function useWebRTC({
             type: "offer",
           });
         } catch (err) {
-          console.error("[WebRTC] Error during renegotiation:", err);
+          console.error("[WebRTC] Error during negotiation:", err);
         } finally {
           makingOfferRef.current.set(targetUserId, false);
         }
@@ -251,6 +286,11 @@ export function useWebRTC({
       pc.oniceconnectionstatechange = () => {
         const state = pc.iceConnectionState;
         console.log(`[ICE] ${targetUserName}: ${state}`);
+
+        // Mark negotiation as done once we connect for the first time
+        if (state === "connected" || state === "completed") {
+          negotiationDoneRef.current.set(targetUserId, true);
+        }
 
         setPeers((prev) => {
           const updated = new Map<string, PeerData>(prev);
@@ -262,7 +302,6 @@ export function useWebRTC({
         });
 
         if (state === "failed") {
-          // Attempt ICE restart
           console.log(`[ICE] Attempting restart for ${targetUserName}`);
           pc.restartIce();
         }
@@ -279,8 +318,7 @@ export function useWebRTC({
         }
       };
 
-      // Store peer data (onnegotiationneeded will fire automatically
-      // after addTrack, so we don't manually create an offer here)
+      // Store peer data
       const peerData: PeerData = {
         userId: targetUserId,
         userName: targetUserName,
@@ -301,24 +339,8 @@ export function useWebRTC({
 
       return pc;
     },
-    [userId, userName, setupAudioAnalyser]
+    [userId, userName, setupAudioAnalyser, cleanupPeer]
   );
-
-  const cleanupPeer = useCallback((peerId: string) => {
-    const peer = peersRef.current.get(peerId);
-    if (peer) {
-      peer.connection.close();
-      peersRef.current.delete(peerId);
-      analyserNodesRef.current.delete(peerId);
-      iceCandidateBufferRef.current.delete(peerId);
-      makingOfferRef.current.delete(peerId);
-      setPeers((prev) => {
-        const updated = new Map(prev);
-        updated.delete(peerId);
-        return updated;
-      });
-    }
-  }, []);
 
   // Audio level polling
   useEffect(() => {
@@ -501,10 +523,14 @@ export function useWebRTC({
                 signal: pc.localDescription,
                 type: "answer",
               });
+              // Mark negotiation complete so renegotiation works for both sides
+              negotiationDoneRef.current.set(from, true);
             } else if (type === "answer") {
               await pc.setRemoteDescription(new RTCSessionDescription(signal));
               // Flush any buffered ICE candidates
               await flushIceCandidates(from, pc);
+              // Mark negotiation complete so renegotiation works for both sides
+              negotiationDoneRef.current.set(from, true);
             } else if (type === "candidate") {
               // Buffer the candidate if remote description isn't set yet
               if (pc.remoteDescription && pc.remoteDescription.type) {
@@ -615,6 +641,7 @@ export function useWebRTC({
       // Cleanup buffers
       iceCandidateBufferRef.current.clear();
       makingOfferRef.current.clear();
+      negotiationDoneRef.current.clear();
 
       // Disconnect socket
       socketRef.current?.disconnect();
@@ -736,6 +763,7 @@ export function useWebRTC({
     analyserNodesRef.current.clear();
     iceCandidateBufferRef.current.clear();
     makingOfferRef.current.clear();
+    negotiationDoneRef.current.clear();
     socketRef.current?.disconnect();
     setPeers(new Map());
     setLocalStream(null);
