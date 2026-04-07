@@ -1,0 +1,5 @@
+{
+  "name": "Global Voice & Screen Hub",
+  "description": "A real-time audio chat and screen sharing platform for global collaboration.",
+  "requestFramePermissions": ["microphone"]
+}
