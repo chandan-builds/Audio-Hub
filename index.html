@@ -5,8 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Audio Hub — Voice Chat & Screen Sharing</title>
     <meta name="description" content="Crystal-clear voice chat with screen sharing. Join a room and connect with anyone globally, instantly." />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>" />
+    <script>
+      (function() {
+        try {
+          var storedTheme = localStorage.getItem('audio-hub-theme');
+          if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]').setAttribute('content', '#0a0a0a');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light'); 
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

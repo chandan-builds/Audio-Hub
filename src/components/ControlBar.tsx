@@ -44,12 +44,12 @@ export function ControlBar({
     <motion.div
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="h-20 border-t border-zinc-800/60 bg-zinc-950/80 backdrop-blur-2xl flex items-center justify-center gap-3 px-6 relative"
+      className="h-20 border-t border-zinc-200 dark:border-zinc-800/60 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl flex items-center justify-center gap-3 px-6 relative"
     >
       {/* Call duration */}
       <div className="absolute left-6 hidden sm:flex items-center gap-2">
-        <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-        <span className="text-xs font-mono text-zinc-500">{formatTime(time)}</span>
+        <div className="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+        <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">{formatTime(time)}</span>
       </div>
 
       {/* Controls */}
@@ -60,14 +60,14 @@ export function ControlBar({
             size="icon"
             onClick={onToggleMute}
             className={cn(
-              "h-12 w-12 rounded-full border-zinc-800/60 bg-zinc-900/60 hover:bg-zinc-800 transition-all duration-200",
-              isMuted && "bg-red-950/30 border-red-900/50 text-red-400 hover:bg-red-950/50"
+              "h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200 text-zinc-700 dark:text-zinc-300",
+              isMuted && "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50"
             )}
           >
             {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+        <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
           {isMuted ? "Unmute" : "Mute"}
         </TooltipContent>
       </Tooltip>
@@ -80,14 +80,14 @@ export function ControlBar({
               size="icon"
               onClick={onToggleScreenShare}
               className={cn(
-                "h-12 w-12 rounded-full border-zinc-800/60 bg-zinc-900/60 hover:bg-zinc-800 transition-all duration-200",
-                isSharingScreen && "bg-cyan-950/30 border-cyan-700/50 text-cyan-400 hover:bg-cyan-950/50"
+                "h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200 text-zinc-700 dark:text-zinc-300",
+                isSharingScreen && "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-700/50 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/50"
               )}
             >
               {isSharingScreen ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="top" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+          <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
             {isSharingScreen ? "Stop Sharing" : "Share Screen"}
           </TooltipContent>
         </Tooltip>
@@ -99,19 +99,19 @@ export function ControlBar({
             variant="outline"
             size="icon"
             onClick={onOpenDeviceSelector}
-            className="h-12 w-12 rounded-full border-zinc-800/60 bg-zinc-900/60 hover:bg-zinc-800 transition-all duration-200"
+            className="h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200"
           >
-             <Settings2 className="h-5 w-5 text-zinc-400" />
+             <Settings2 className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+        <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
           Audio Settings
         </TooltipContent>
       </Tooltip>
 
       <PiPKeepAlive isMuted={isMuted} onToggleMute={onToggleMute} />
 
-      <Separator orientation="vertical" className="h-8 bg-zinc-800/60 mx-1" />
+      <Separator orientation="vertical" className="h-8 bg-zinc-200 dark:bg-zinc-800/60 mx-1" />
 
       <Tooltip>
         <TooltipTrigger asChild>
@@ -119,21 +119,21 @@ export function ControlBar({
             variant="destructive"
             size="icon"
             onClick={onLeave}
-            className="h-12 w-12 rounded-full bg-red-600/80 hover:bg-red-600 shadow-lg shadow-red-900/20 transition-all duration-200 active:scale-95"
+            className="h-12 w-12 rounded-full bg-red-500 hover:bg-red-600 dark:bg-red-600/80 dark:hover:bg-red-600 shadow-lg shadow-red-900/10 dark:shadow-red-900/20 text-white transition-all duration-200 active:scale-95"
           >
             <PhoneOff className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+        <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
           Leave Room
         </TooltipContent>
       </Tooltip>
 
       {/* Volume indicator */}
       <div className="absolute right-6 hidden sm:flex items-center gap-2">
-        <Volume2 className="h-3.5 w-3.5 text-zinc-600" />
-        <div className="w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
-          <div className="h-full w-4/5 bg-zinc-600 rounded-full" />
+        <Volume2 className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-600" />
+        <div className="w-16 h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-full w-4/5 bg-zinc-400 dark:bg-zinc-600 rounded-full" />
         </div>
       </div>
     </motion.div>

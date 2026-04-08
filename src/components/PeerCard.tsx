@@ -115,9 +115,9 @@ export const PeerCard = memo(function PeerCard({
     >
       <Card
         className={cn(
-          "bg-zinc-900/50 border-zinc-800/60 overflow-hidden backdrop-blur-sm transition-all duration-300 hover:border-zinc-700/80 hover:shadow-lg hover:shadow-black/20",
-          isLocal && "ring-1 ring-zinc-700/40 bg-zinc-900/70",
-          audioLevel > 0.2 && !isLocal && "ring-2 ring-emerald-500/30 border-emerald-800/30"
+          "bg-white/80 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/60 overflow-hidden backdrop-blur-md transition-all duration-300 hover:border-zinc-300 dark:hover:border-zinc-700/80 hover:shadow-lg hover:shadow-zinc-200/50 dark:hover:shadow-black/20",
+          isLocal && "ring-1 ring-violet-200 dark:ring-zinc-700/40 bg-white/95 dark:bg-zinc-900/70",
+          audioLevel > 0.2 && !isLocal && "ring-2 ring-emerald-500/30 border-emerald-500/30 dark:border-emerald-800/30"
         )}
       >
         <CardContent className="p-5 flex flex-col items-center gap-4">
@@ -126,14 +126,14 @@ export const PeerCard = memo(function PeerCard({
             <div className="relative">
               <Avatar className={cn(
                 "h-20 w-20 border-2 transition-colors duration-300",
-                isLocal ? "border-zinc-600" : "border-zinc-800",
-                audioLevel > 0.2 && !isLocal && "border-emerald-600/50"
+                isLocal ? "border-violet-200 dark:border-zinc-600" : "border-zinc-200 dark:border-zinc-800",
+                audioLevel > 0.2 && !isLocal && "border-emerald-400 dark:border-emerald-600/50"
               )}>
                 <AvatarFallback className={cn(
                   "text-xl font-bold",
                   isLocal
-                    ? "bg-gradient-to-br from-zinc-700 to-zinc-800 text-zinc-200"
-                    : "bg-gradient-to-br from-zinc-800 to-zinc-900 text-zinc-400"
+                    ? "bg-gradient-to-br from-violet-100 to-violet-200 text-violet-700 dark:from-zinc-700 dark:to-zinc-800 dark:text-zinc-200"
+                    : "bg-gradient-to-br from-zinc-100 to-zinc-200 text-zinc-600 dark:from-zinc-800 dark:to-zinc-900 dark:text-zinc-400"
                 )}>
                   {name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -145,7 +145,7 @@ export const PeerCard = memo(function PeerCard({
 
           {/* Name and status */}
           <div className="text-center space-y-1">
-            <p className={cn("font-semibold", isLocal ? "text-zinc-100" : "text-zinc-200")}>
+            <p className={cn("font-semibold text-zinc-900 dark:text-zinc-100")}>
               {name} {isLocal && <span className="text-zinc-500 font-normal">(You)</span>}
             </p>
             <div className="flex items-center justify-center gap-2">

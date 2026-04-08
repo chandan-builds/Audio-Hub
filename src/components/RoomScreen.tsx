@@ -28,7 +28,7 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
   }, [stream]);
 
   return (
-    <div className="mb-6 w-full aspect-video md:h-[60vh] bg-black rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl shadow-black/50 relative group">
+    <div className="mb-6 w-full aspect-video md:h-[60vh] bg-zinc-100 dark:bg-black rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800/50 shadow-2xl shadow-black/5 dark:shadow-black/50 relative group">
       <video
         ref={videoRef}
         autoPlay
@@ -37,7 +37,7 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
         className="w-full h-full object-contain"
       />
       <div className="absolute top-4 left-4 shadow-lg">
-        <Badge className="bg-zinc-900/80 backdrop-blur-md border border-zinc-700/50 text-zinc-200">
+        <Badge className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-200">
           {userName}'s screen
         </Badge>
       </div>
@@ -99,19 +99,19 @@ export function RoomScreen({
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-[#0a0a0a]">
+    <div className="flex flex-col h-[100dvh] bg-zinc-50 dark:bg-[#0a0a0a]">
       {/* Header */}
-      <header className="h-14 border-b border-zinc-800/60 bg-zinc-950/60 backdrop-blur-xl flex items-center justify-between px-5 z-10">
+      <header className="h-14 border-b border-zinc-200 dark:border-zinc-800/60 bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl flex items-center justify-between px-5 z-10 transition-colors duration-300">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-zinc-400" />
-            <h1 className="font-bold tracking-tight text-zinc-200 text-sm">Audio Hub</h1>
+            <Radio className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+            <h1 className="font-bold tracking-tight text-zinc-900 dark:text-zinc-200 text-sm">Audio Hub</h1>
           </div>
-          <Separator orientation="vertical" className="h-4 bg-zinc-800/60" />
+          <Separator orientation="vertical" className="h-4 bg-zinc-200 dark:bg-zinc-800/60" />
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="bg-zinc-900/50 border-zinc-800/60 text-zinc-400 font-mono text-[11px]"
+              className="bg-zinc-100 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-mono text-[11px]"
             >
               {roomId}
             </Badge>
@@ -119,16 +119,16 @@ export function RoomScreen({
               <TooltipTrigger asChild>
                 <button
                   onClick={handleCopyRoomId}
-                  className="p-1 hover:bg-zinc-800 rounded-md transition-colors"
+                  className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
                 >
                   {copied ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                   ) : (
                     <Copy className="h-3.5 w-3.5 text-zinc-500" />
                   )}
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300">
+              <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
                 Copy invite link
               </TooltipContent>
             </Tooltip>
@@ -142,28 +142,28 @@ export function RoomScreen({
         <div className="flex items-center gap-3">
           {/* User avatars */}
           <div className="flex -space-x-2 mr-2">
-            <Avatar className="h-7 w-7 border-2 border-zinc-950">
-              <AvatarFallback className="bg-zinc-800 text-[10px] font-bold">
+            <Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950">
+              <AvatarFallback className="bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold">
                 {userName.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             {peerArray.slice(0, 3).map(([id, peer]) => (
-              <Avatar key={id} className="h-7 w-7 border-2 border-zinc-950">
-                <AvatarFallback className="bg-zinc-900 text-[10px]">
+              <Avatar key={id} className="h-7 w-7 border-2 border-white dark:border-zinc-950">
+                <AvatarFallback className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px]">
                   {peer.userName.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ))}
             {peerArray.length > 3 && (
-              <Avatar className="h-7 w-7 border-2 border-zinc-950">
-                <AvatarFallback className="bg-zinc-900 text-[10px] text-zinc-500">
+              <Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950">
+                <AvatarFallback className="bg-zinc-100 dark:bg-zinc-900 text-[10px] text-zinc-500">
                   +{peerArray.length - 3}
                 </AvatarFallback>
               </Avatar>
             )}
           </div>
 
-          <Badge className="bg-zinc-800/60 text-zinc-400 border-zinc-700/40 text-[10px] font-mono gap-1">
+          <Badge className="bg-zinc-100 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/40 text-[10px] font-mono gap-1">
             <Users className="h-3 w-3" />
             {roomUserCount}
           </Badge>
@@ -174,8 +174,8 @@ export function RoomScreen({
             size="icon"
             onClick={() => setChatOpen(!chatOpen)}
             className={cn(
-              "rounded-full h-8 w-8 border-zinc-800/60 bg-zinc-900/50 hover:bg-zinc-800 hidden xl:flex",
-              chatOpen && "bg-violet-950/30 border-violet-800/40 text-violet-400"
+              "rounded-full h-8 w-8 border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-800 hidden xl:flex text-zinc-600 dark:text-zinc-400",
+              chatOpen && "bg-violet-100 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800/40 text-violet-600 dark:text-violet-400 hover:bg-violet-200 hover:text-violet-700 dark:hover:bg-violet-900/50"
             )}
           >
             <MessageSquare className="h-3.5 w-3.5" />
@@ -188,7 +188,7 @@ export function RoomScreen({
               onLeave();
             }}
             size="sm"
-            className="bg-red-950/30 text-red-400 border border-red-900/40 hover:bg-red-900/40 hidden xl:flex h-8 text-xs"
+            className="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 hover:bg-red-100 dark:hover:bg-red-900/40 hidden xl:flex h-8 text-xs font-semibold"
           >
             Leave
           </Button>
@@ -251,10 +251,10 @@ export function RoomScreen({
 
               {/* Empty state */}
               {peerArray.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-16 opacity-20">
-                  <Users className="h-14 w-14 mb-4" />
-                  <p className="text-lg font-medium">Waiting for others...</p>
-                  <p className="text-sm font-mono mt-1">Room: {roomId}</p>
+                <div className="col-span-full flex flex-col items-center justify-center py-16 opacity-30 dark:opacity-20">
+                  <Users className="h-14 w-14 mb-4 text-zinc-500" />
+                  <p className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Waiting for others...</p>
+                  <p className="text-sm font-mono mt-1 text-zinc-600 dark:text-zinc-400">Room: {roomId}</p>
                 </div>
               )}
             </div>

@@ -77,16 +77,16 @@ export function ActivitySidebar({
   roomUserCount,
 }: ActivitySidebarProps) {
   return (
-    <aside className="w-80 border-l border-zinc-800/60 bg-zinc-950/40 backdrop-blur-sm hidden xl:flex flex-col">
+    <aside className="w-80 border-l border-zinc-200 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-950/40 backdrop-blur-sm hidden xl:flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800/60 flex items-center justify-between">
+      <div className="p-4 border-b border-zinc-200 dark:border-zinc-800/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-zinc-500" />
-          <span className="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400">
+          <span className="text-xs font-bold uppercase tracking-[0.15em] text-zinc-600 dark:text-zinc-400">
             Activity
           </span>
         </div>
-        <Badge className="bg-zinc-800/80 text-zinc-400 border-zinc-700/50 text-[10px] font-mono">
+        <Badge className="bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/50 text-[10px] font-mono">
           {roomUserCount} {roomUserCount === 1 ? "USER" : "USERS"}
         </Badge>
       </div>
@@ -95,19 +95,19 @@ export function ActivitySidebar({
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-3">
           {activityLog.length === 0 && (
-            <p className="text-xs text-zinc-600 text-center py-4 font-mono">No activity yet</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-600 text-center py-4 font-mono">No activity yet</p>
           )}
           {activityLog.map((event, i) => (
             <div key={i} className="flex gap-3 items-start group">
-              <div className={`h-2 w-2 rounded-full mt-1.5 ${getEventDot(event.type)} ring-2 ring-zinc-900`} />
+              <div className={`h-2 w-2 rounded-full mt-1.5 ${getEventDot(event.type)} ring-2 ring-white dark:ring-zinc-900`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   {getEventIcon(event.type)}
-                  <p className="text-sm text-zinc-300 font-medium truncate">
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 font-medium truncate">
                     {getEventText(event)}
                   </p>
                 </div>
-                <p className="text-[10px] text-zinc-600 font-mono mt-0.5">
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-600 font-mono mt-0.5">
                   {formatTimeAgo(event.timestamp)}
                 </p>
               </div>
