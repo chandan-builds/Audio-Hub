@@ -110,13 +110,13 @@ export function PiPKeepAlive() {
 
   return (
     <>
-      <canvas ref={canvasRef} width={300} height={300} className="hidden" />
+      <canvas ref={canvasRef} width={300} height={300} className="absolute opacity-0 pointer-events-none w-px h-px -z-50" />
       <video 
         ref={videoRef} 
         muted 
         playsInline 
         autoPlay 
-        className="hidden" 
+        className="absolute opacity-0 pointer-events-none w-px h-px -z-50" 
       />
 
       <Tooltip>
