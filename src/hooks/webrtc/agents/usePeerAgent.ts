@@ -13,7 +13,7 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
 
   const setupAudioAnalyser = useCallback(
     (stream: MediaStream, peerId: string) => {
-      if (!memory.audioContextRef.current) {
+      if (!memory.audioContextRef.current || memory.audioContextRef.current.state === "closed") {
         memory.audioContextRef.current = new AudioContext();
       }
       const ctx = memory.audioContextRef.current;

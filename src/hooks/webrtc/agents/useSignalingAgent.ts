@@ -227,7 +227,9 @@ export function useSignalingAgent({
       memory.screenStreamRef.current?.getTracks().forEach((t) => t.stop());
       memory.peersRef.current.forEach((peer) => peer.connection.close());
       memory.peersRef.current.clear();
-      memory.audioContextRef.current?.close();
+      if (memory.audioContextRef.current && memory.audioContextRef.current.state !== "closed") {
+        memory.audioContextRef.current.close().catch(err => console.log("AudioContext close:", err));
+      }
       memory.analyserNodesRef.current.clear();
       memory.iceCandidateBufferRef.current.clear();
       memory.makingOfferRef.current.clear();
@@ -238,7 +240,7 @@ export function useSignalingAgent({
       memory.setLocalStream(null);
       memory.setLocalScreenStream(null);
       memory.setChatMessages([]);
-      memory.setActivityLog([]);
+      // memory.setActivityLog([]); // Handled by component unmount or context cleanup
       memory.setIsConnected(false);
       memory.setIsSharingScreen(false);
       memory.setIsMuted(false);
