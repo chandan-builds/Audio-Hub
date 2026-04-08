@@ -69,7 +69,7 @@ export function ChatPanel({ messages, onSendMessage, isOpen, onToggle }: ChatPan
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           onClick={onToggle}
-          className="fixed bottom-24 right-6 z-50 h-12 w-12 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl shadow-black/10 dark:shadow-black/30 flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors xl:bottom-6"
+          className="fixed bottom-24 right-6 z-50 h-12 w-12 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl shadow-black/10 dark:shadow-black/30 flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors xl:hidden"
         >
           <MessageSquare className="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
           {unreadCount > 0 && (
