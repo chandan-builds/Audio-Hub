@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { useStableMemory } from "../memory/useWebRTCMemory";
-import { setOpusLowLatency } from "../tools/sdpTools";
+import { setOpusLowLatency, createLowLatencyAudioContext } from "../tools/sdpTools";
 import { PeerData } from "../types";
 
 interface UsePeerAgentOptions {
@@ -15,7 +15,7 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
     (stream: MediaStream, peerId: string) => {
       const memory = memoryRef.current;
       if (!memory.audioContextRef.current || memory.audioContextRef.current.state === "closed") {
-        memory.audioContextRef.current = new AudioContext();
+        memory.audioContextRef.current = createLowLatencyAudioContext();
       }
       const ctx = memory.audioContextRef.current;
       const source = ctx.createMediaStreamSource(stream);
@@ -74,6 +74,8 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
       const pc = new RTCPeerConnection({
         iceServers: memory.iceServersRef.current,
         iceCandidatePoolSize: 10,
+        bundlePolicy: "max-bundle",
+        rtcpMuxPolicy: "require",
       });
 
       // Initialize state for this peer

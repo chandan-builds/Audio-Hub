@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useStableMemory } from "../memory/useWebRTCMemory";
+import { BLUETOOTH_AUDIO_CONSTRAINTS } from "../tools/sdpTools";
 
 export function useMediaAgent() {
   const memoryRef = useStableMemory();
@@ -84,7 +85,10 @@ export function useMediaAgent() {
     const memory = memoryRef.current;
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: deviceId } }
+        audio: {
+          ...BLUETOOTH_AUDIO_CONSTRAINTS,
+          deviceId: { exact: deviceId },
+        }
       });
       
       const oldStream = memory.localStreamRef.current;

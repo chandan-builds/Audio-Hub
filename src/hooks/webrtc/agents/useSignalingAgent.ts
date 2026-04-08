@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { io } from "socket.io-client";
 import { useStableMemory } from "../memory/useWebRTCMemory";
 import { fetchTurnCredentials } from "../tools/networkTools";
-import { setOpusLowLatency } from "../tools/sdpTools";
+import { setOpusLowLatency, BLUETOOTH_AUDIO_CONSTRAINTS } from "../tools/sdpTools";
 import { ChatMessage, PeerData } from "../types";
 
 export interface UseSignalingAgentOptions {
@@ -50,14 +50,7 @@ export function useSignalingAgent({
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1,
-            sampleRate: 48000,
-            latency: 0 as unknown,
-          } as MediaTrackConstraints,
+          audio: BLUETOOTH_AUDIO_CONSTRAINTS,
         });
 
         if (!mounted) {

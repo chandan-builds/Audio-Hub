@@ -1,116 +1,125 @@
 # 🎧 Audio Hub
 
-Real-time voice chat and screen sharing — connect with anyone, anywhere.
+Real-time voice chat and screen sharing application built for modern browsers. Connect with anyone globally, featuring low-latency communication, premium UI aesthetics, and instant room generation.
 
-![Audio Hub](https://img.shields.io/badge/WebRTC-Audio%20Chat-blue?style=for-the-badge)
-![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+![Audio Hub](https://img.shields.io/badge/WebRTC-Audio%20Chat-blue?style=for-the-badge) ![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black) ![TailwindCSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=for-the-badge&logo=tailwind-css) ![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?style=for-the-badge&logo=vite) ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
-## Features
+## ✨ Features
 
-- 🎙️ **Crystal-clear audio** — Bluetooth-optimized, low-latency voice chat
-- 🖥️ **Screen sharing** — Share your screen with focus mode
-- 💬 **Text chat** — Real-time messaging alongside voice
-- 🌍 **Global rooms** — Create or join rooms instantly
-- 🔒 **Encrypted** — WebRTC peer-to-peer encryption
-- 📱 **Responsive** — Works on desktop, tablet, and mobile
-- 🎯 **Device selector** — Switch microphones on the fly
-- 📊 **Audio visualizer** — See who's speaking in real-time
+- 🎙️ **Crystal-Clear Audio** — Bluetooth-optimized, low-latency voice chat using Opus codecs.
+- 🖥️ **Screen Sharing** — Flawless screen sharing with dynamic focus mode and scaling.
+- 💬 **Text Chat** — Integrated real-time text messaging alongside voice and video.
+- 🌍 **Instant Global Rooms** — Instantly create and share URL-based rooms to connect with peers.
+- 🎨 **Premium UI/UX** — Glassmorphism aesthetics, responsive layouts, subtle animations, and sleek dark mode.
+- 🔒 **Encrypted Peer-to-Peer** — Secure WebRTC P2P connection handling.
+- 🎯 **Device Management** — Switch microphones and audio devices gracefully.
+- 📊 **Audio Visualizer** — Real-time waveform-style visualizations to see who is speaking.
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 Audio-Hub/
-├── src/              ← React frontend (deploy to Vercel)
-│   ├── App.tsx
+├── src/              ← React frontend (Deployed to Vercel)
+│   ├── App.tsx       ← Main application wrapper & entry point
 │   ├── hooks/
-│   │   └── useWebRTC.ts
+│   │   └── useWebRTC.ts  ← Core WebRTC communication logic
 │   └── components/
 │       ├── LobbyScreen.tsx
-│       ├── RoomScreen.tsx
-│       ├── PeerCard.tsx
-│       ├── ControlBar.tsx
-│       ├── ChatPanel.tsx
-│       ├── ActivitySidebar.tsx
-│       └── DeviceSelector.tsx
+│       └── room/
+│           ├── RoomScreen.tsx
+│           ├── PeerCard.tsx
+│           ├── ControlBar.tsx
+│           ├── ChatPanel.tsx
+│           └── DeviceSelector.tsx
 │
-└── server/           ← Socket.io server (deploy to Render)
-    └── index.ts
+└── server/           ← Express + Socket.io signaling server (Deployed to Render)
+    └── index.ts      ← Socket signaling events & WebRTC room metadata
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 20+
-- [Metered.ca](https://www.metered.ca/stun-turn) TURN credentials (free tier)
+- [Metered.ca](https://www.metered.ca/stun-turn) TURN credentials (free tier) for reliable P2P NAT traversal.
 
 ### 1. Install Dependencies
 
 ```bash
-# Client
+# Install Client Dependencies
 npm install
 
-# Server
+# Install Server Dependencies
 cd server && npm install
 ```
 
 ### 2. Configure Environment
 
+Create the respective `.env` files in your root and `server` directories.
+
 ```bash
-# Client (.env.local)
+# Client (.env)
 VITE_SOCKET_URL=http://localhost:10000
 
 # Server (server/.env)
 PORT=10000
 TURN_USERNAME=your_metered_username
 TURN_CREDENTIAL=your_metered_credential
+CLIENT_URL=http://localhost:5173
 ```
 
 ### 3. Run Locally
 
+You need two terminals to run both the signaling server and the vite client.
+
 ```bash
-# Terminal 1: Start server
+# Terminal 1: Start signaling server
 cd server && npm run dev
 
-# Terminal 2: Start client
+# Terminal 2: Start frontend client
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-## Deployment
+## 🌐 Deployment
+
+This project uses a split architecture, perfectly optimized for cloud hosting natively on Vercel and Render.
 
 ### Frontend → Vercel
-
-1. Connect your GitHub repo to Vercel
+1. Connect your GitHub repo to Vercel.
 2. Set build command: `npm run build`
 3. Set output directory: `dist`
-4. Add environment variable: `VITE_SOCKET_URL=https://your-server.onrender.com`
+4. Add environment variable: `VITE_SOCKET_URL=https://your-signaling-server.onrender.com`
 
 ### Backend → Render
-
-1. Create a new **Web Service** on Render
+1. Create a new **Web Service** on Render.
 2. Set root directory: `server`
 3. Set build command: `npm install && npx tsc`
 4. Set start command: `node dist/index.js`
 5. Add environment variables:
-   - `CLIENT_URL=https://your-app.vercel.app`
+   - `CLIENT_URL=https://your-frontend-app.vercel.app` (Important for CORS)
    - `TURN_USERNAME=your_metered_username`
    - `TURN_CREDENTIAL=your_metered_credential`
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, Vite, Tailwind CSS 4, shadcn/ui |
-| Real-time | WebRTC, Socket.io |
-| Animation | Framer Motion |
-| TURN/STUN | Metered.ca |
-| Hosting | Vercel (client) + Render (server) |
+| **Frontend** | React 19, TypeScript, Vite |
+| **Styling** | Tailwind CSS v4, shadcn/ui, Lucide Icons |
+| **Real-time** | WebRTC, Socket.io |
+| **Animation** | Framer Motion & CSS UI utilities |
+| **P2P Config** | Metered.ca (STUN/TURN) |
+| **Hosting** | Vercel (Client) + Render (Server) |
 
-## Bluetooth Audio Optimization
+## 📡 Bluetooth Audio Optimization
 
-Audio Hub uses specialized WebRTC constraints for minimal Bluetooth latency:
-- Mono audio (reduces BT codec overhead)
-- 48kHz sample rate (native Opus frequency)
-- Zero target latency
-- Opus SDP munging with `ptime=10` and `useinbandfec=1`
+Audio Hub uses specialized WebRTC constraints targeting minimal Bluetooth latency, improving the experience drastically on wireless earphones:
+- Mono audio streaming (reduces BT codec transmission payload)
+- 48kHz core sample rate (native Opus processing frequency)
+- Zero target acoustic latency configurations
+- Opus SDP munging applying `ptime=10` and `useinbandfec=1`
+
+## 👨‍💻 Credits
+
+Designed and engineered by **chandan-builds**.
