@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LobbyScreen } from "./components/LobbyScreen";
 import { RoomScreen } from "./components/RoomScreen";
-import { useWebRTC } from "./hooks/useWebRTC";
+import { WebRTCProvider } from "./hooks/useWebRTC";
 
 // Server URL — in production, this points to your Render deployment
 const SERVER_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:10000";
@@ -22,13 +22,6 @@ export default function App() {
     }
   }, []);
 
-  const webrtc = useWebRTC({
-    roomId: inRoom ? roomId : "",
-    userName,
-    userId,
-    serverUrl: SERVER_URL,
-  });
-
   const handleJoinRoom = (room: string, name: string) => {
     setRoomId(room);
     setUserName(name);
@@ -41,7 +34,6 @@ export default function App() {
   };
 
   const handleLeaveRoom = () => {
-    webrtc.disconnect();
     setInRoom(false);
 
     // Remove room param from URL
@@ -56,24 +48,15 @@ export default function App() {
         {!inRoom ? (
           <LobbyScreen onJoinRoom={handleJoinRoom} />
         ) : (
-          <RoomScreen
-            roomId={roomId}
-            userName={userName}
-            peers={webrtc.peers}
-            localStream={webrtc.localStream}
-            localScreenStream={webrtc.localScreenStream}
-            isMuted={webrtc.isMuted}
-            isSharingScreen={webrtc.isSharingScreen}
-            isConnected={webrtc.isConnected}
-            chatMessages={webrtc.chatMessages}
-            activityLog={webrtc.activityLog}
-            roomUserCount={webrtc.roomUserCount}
-            onToggleMute={webrtc.toggleMute}
-            onToggleScreenShare={webrtc.toggleScreenShare}
-            onSendChatMessage={webrtc.sendChatMessage}
-            onLeave={handleLeaveRoom}
-            onSwitchAudioDevice={webrtc.switchAudioDevice}
-          />
+          <WebRTCProvider>
+            <RoomScreen
+              roomId={roomId}
+              userName={userName}
+              userId={userId}
+              serverUrl={SERVER_URL}
+              onLeave={handleLeaveRoom}
+            />
+          </WebRTCProvider>
         )}
       </div>
     </TooltipProvider>

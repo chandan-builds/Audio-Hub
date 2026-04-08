@@ -2,7 +2,7 @@ import { AnimatePresence } from "motion/react";
 import {
   Radio, Copy, Check, Users, MessageSquare
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -13,49 +13,48 @@ import { ControlBar } from "./ControlBar";
 import { ActivitySidebar } from "./ActivitySidebar";
 import { ChatPanel } from "./ChatPanel";
 import { DeviceSelector } from "./DeviceSelector";
-import type { PeerData, ChatMessage, ActivityEvent } from "@/src/hooks/useWebRTC";
+import { useWebRTCMemory, useWebRTCCoordinator } from "@/src/hooks/useWebRTC";
 import { cn } from "@/lib/utils";
 
 interface RoomScreenProps {
   roomId: string;
   userName: string;
-  peers: Map<string, PeerData>;
-  localStream: MediaStream | null;
-  localScreenStream: MediaStream | null;
-  isMuted: boolean;
-  isSharingScreen: boolean;
-  isConnected: boolean;
-  chatMessages: ChatMessage[];
-  activityLog: ActivityEvent[];
-  roomUserCount: number;
-  onToggleMute: () => void;
-  onToggleScreenShare: () => Promise<void>;
-  onSendChatMessage: (message: string) => void;
+  userId: string;
+  serverUrl: string;
   onLeave: () => void;
-  onSwitchAudioDevice: (deviceId: string) => Promise<void>;
 }
 
 export function RoomScreen({
   roomId,
   userName,
-  peers,
-  localStream,
-  localScreenStream,
-  isMuted,
-  isSharingScreen,
-  isConnected,
-  chatMessages,
-  activityLog,
-  roomUserCount,
-  onToggleMute,
-  onToggleScreenShare,
-  onSendChatMessage,
+  userId,
+  serverUrl,
   onLeave,
-  onSwitchAudioDevice,
 }: RoomScreenProps) {
   const [chatOpen, setChatOpen] = useState(false);
   const [deviceSelectorOpen, setDeviceSelectorOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Initialize Memory state
+  const {
+    peers,
+    localStream,
+    localScreenStream,
+    isMuted,
+    isSharingScreen,
+    isConnected,
+    chatMessages,
+    activityLog,
+    roomUserCount
+  } = useWebRTCMemory();
+
+  // Boot up the Coordinator (which initializes sub-agents)
+  const agents = useWebRTCCoordinator({
+    roomId,
+    userId,
+    userName,
+    serverUrl
+  });
 
   const peerArray = Array.from(peers.entries());
 
@@ -154,7 +153,10 @@ export function RoomScreen({
 
           <Button
             variant="destructive"
-            onClick={onLeave}
+            onClick={() => {
+              agents.disconnect();
+              onLeave();
+            }}
             size="sm"
             className="bg-red-950/30 text-red-400 border border-red-900/40 hover:bg-red-900/40 hidden xl:flex h-8 text-xs"
           >
@@ -267,16 +269,19 @@ export function RoomScreen({
       <ControlBar
         isMuted={isMuted}
         isSharingScreen={isSharingScreen}
-        onToggleMute={onToggleMute}
-        onToggleScreenShare={onToggleScreenShare}
-        onLeave={onLeave}
+        onToggleMute={agents.toggleMute}
+        onToggleScreenShare={agents.toggleScreenShare}
+        onLeave={() => {
+          agents.disconnect();
+          onLeave();
+        }}
         onOpenDeviceSelector={() => setDeviceSelectorOpen(true)}
       />
 
       {/* Chat Panel */}
       <ChatPanel
         messages={chatMessages}
-        onSendMessage={onSendChatMessage}
+        onSendMessage={agents.sendChatMessage}
         isOpen={chatOpen}
         onToggle={() => setChatOpen(!chatOpen)}
       />
@@ -285,7 +290,7 @@ export function RoomScreen({
       <DeviceSelector
         isOpen={deviceSelectorOpen}
         onClose={() => setDeviceSelectorOpen(false)}
-        onSelectDevice={onSwitchAudioDevice}
+        onSelectDevice={agents.switchAudioDevice}
       />
     </div>
   );

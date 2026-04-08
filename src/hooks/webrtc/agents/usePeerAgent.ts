@@ -1,0 +1,310 @@
+import { useCallback, useEffect } from "react";
+import { useWebRTCMemory } from "../memory/useWebRTCMemory";
+import { setOpusLowLatency } from "../tools/sdpTools";
+import { PeerData } from "../types";
+
+interface UsePeerAgentOptions {
+  userId: string;
+  userName: string;
+}
+
+export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
+  const memory = useWebRTCMemory();
+
+  const setupAudioAnalyser = useCallback(
+    (stream: MediaStream, peerId: string) => {
+      if (!memory.audioContextRef.current) {
+        memory.audioContextRef.current = new AudioContext();
+      }
+      const ctx = memory.audioContextRef.current;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.5;
+      source.connect(analyser);
+      memory.analyserNodesRef.current.set(peerId, analyser);
+    },
+    [memory]
+  );
+
+  const cleanupPeer = useCallback((peerId: string) => {
+    const peer = memory.peersRef.current.get(peerId);
+    if (peer) {
+      peer.connection.close();
+      memory.peersRef.current.delete(peerId);
+      memory.analyserNodesRef.current.delete(peerId);
+      memory.iceCandidateBufferRef.current.delete(peerId);
+      memory.makingOfferRef.current.delete(peerId);
+      memory.negotiationDoneRef.current.delete(peerId);
+      memory.politeRef.current.delete(peerId);
+      memory.ignoreOfferRef.current.delete(peerId);
+      memory.setPeers((prev) => {
+        const updated = new Map(prev);
+        updated.delete(peerId);
+        return updated;
+      });
+    }
+  }, [memory]);
+
+  const flushIceCandidates = useCallback(async (peerId: string, pc: RTCPeerConnection) => {
+    const buffered = memory.iceCandidateBufferRef.current.get(peerId);
+    if (buffered && buffered.length > 0) {
+      console.log(`[ICE] Flushing ${buffered.length} buffered candidates for ${peerId}`);
+      for (const candidate of buffered) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn("[ICE] Error adding buffered candidate:", err);
+        }
+      }
+      memory.iceCandidateBufferRef.current.set(peerId, []);
+    }
+  }, [memory]);
+
+  const createPeerConnection = useCallback(
+    (
+      targetUserId: string,
+      targetUserName: string,
+      isInitiator: boolean
+    ): RTCPeerConnection => {
+      const pc = new RTCPeerConnection({
+        iceServers: memory.iceServersRef.current,
+        iceCandidatePoolSize: 10,
+      });
+
+      // Initialize state for this peer
+      memory.iceCandidateBufferRef.current.set(targetUserId, []);
+      memory.makingOfferRef.current.set(targetUserId, false);
+      memory.ignoreOfferRef.current.set(targetUserId, false);
+      memory.negotiationDoneRef.current.set(targetUserId, false);
+      
+      // Perfect negotiation: the user who IS the initiator is IMPOLITE (polite = false).
+      // The user who receives the target connection is POLITE (polite = true).
+      memory.politeRef.current.set(targetUserId, !isInitiator);
+
+      // Add local audio tracks
+      if (memory.localStreamRef.current) {
+        memory.localStreamRef.current.getTracks().forEach((track) => {
+          pc.addTrack(track, memory.localStreamRef.current!);
+        });
+      }
+
+      // Add screen share track if we're currently sharing
+      if (memory.screenStreamRef.current) {
+        const videoTrack = memory.screenStreamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+          pc.addTrack(videoTrack, memory.screenStreamRef.current);
+        }
+      }
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          memory.socketRef.current?.emit("signal", {
+            to: targetUserId,
+            from: userId,
+            fromName: userName,
+            signal: event.candidate,
+            type: "candidate",
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        console.log(`[WebRTC] ontrack from ${targetUserName}, kind=${event.track.kind}`);
+        // Ensure stream is properly captured, fallback to a new MediaStream if event.streams is empty
+        const incomingStream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+
+        if (event.track.kind === "audio") {
+          setupAudioAnalyser(incomingStream, targetUserId);
+          
+          memory.setPeers((prev) => {
+            const updated = new Map<string, PeerData>(prev);
+            const existing = updated.get(targetUserId);
+            const peerData: PeerData = {
+              userId: targetUserId,
+              userName: targetUserName,
+              stream: incomingStream,
+              screenStream: existing?.screenStream ?? null,
+              connection: pc,
+              isMuted: existing?.isMuted ?? false,
+              isSharingScreen: existing?.isSharingScreen ?? false,
+              connectionState: pc.iceConnectionState,
+              audioLevel: 0,
+            };
+            updated.set(targetUserId, peerData);
+            return updated;
+          });
+          
+          const existingRef = memory.peersRef.current.get(targetUserId);
+          memory.peersRef.current.set(targetUserId, {
+            ...(existingRef as PeerData),
+            userId: targetUserId,
+            userName: targetUserName,
+            stream: incomingStream,
+            screenStream: existingRef?.screenStream ?? null,
+            connection: pc,
+            isMuted: existingRef?.isMuted ?? false,
+            isSharingScreen: existingRef?.isSharingScreen ?? false,
+            connectionState: pc.iceConnectionState,
+            audioLevel: existingRef?.audioLevel ?? 0,
+          });
+        } else if (event.track.kind === "video") {
+          memory.setPeers((prev) => {
+            const updated = new Map<string, PeerData>(prev);
+            const existing = updated.get(targetUserId);
+            if (existing) {
+              updated.set(targetUserId, {
+                ...(existing as PeerData),
+                screenStream: incomingStream,
+                isSharingScreen: true,
+              });
+            }
+            return updated;
+          });
+
+          const existingRef = memory.peersRef.current.get(targetUserId);
+          if (existingRef) {
+            memory.peersRef.current.set(targetUserId, { ...(existingRef as PeerData), screenStream: incomingStream, isSharingScreen: true });
+          }
+
+          event.track.onended = () => {
+            memory.setPeers((prev) => {
+              const updated = new Map<string, PeerData>(prev);
+              const existing = updated.get(targetUserId);
+              if (existing) {
+                updated.set(targetUserId, { ...(existing as PeerData), screenStream: null, isSharingScreen: false });
+              }
+              return updated;
+            });
+            const ref = memory.peersRef.current.get(targetUserId);
+            if (ref) {
+              memory.peersRef.current.set(targetUserId, { ...ref, screenStream: null, isSharingScreen: false });
+            }
+          };
+        }
+      };
+
+      pc.onnegotiationneeded = async () => {
+        const polite = memory.politeRef.current.get(targetUserId);
+        const alreadyNegotiated = memory.negotiationDoneRef.current.get(targetUserId);
+
+        // Allow initial negotiation to skip creating offers if we are the polite peer waiting.
+        // But once connected (alreadyNegotiated), ANY peer can create an offer based on Perfect Negotiation.
+        if (polite && !alreadyNegotiated) {
+          console.log(`[WebRTC] Skipping initial onnegotiationneeded for polite peer ${targetUserName}`);
+          return;
+        }
+
+        try {
+          memory.makingOfferRef.current.set(targetUserId, true);
+          
+          await pc.setLocalDescription();
+          const localDesc = pc.localDescription;
+          if (!localDesc) return;
+          
+          const modifiedSdp = setOpusLowLatency(localDesc.sdp || "");
+          const finalDescription = new RTCSessionDescription({ type: localDesc.type, sdp: modifiedSdp });
+          
+          // Re-apply modified SDP
+          if (localDesc.sdp !== modifiedSdp) {
+             await pc.setLocalDescription(finalDescription);
+          }
+
+          memory.socketRef.current?.emit("signal", {
+            to: targetUserId,
+            from: userId,
+            fromName: userName,
+            signal: finalDescription,
+            type: "offer",
+          });
+        } catch (err) {
+          console.error("[WebRTC] Error during negotiation:", err);
+        } finally {
+          memory.makingOfferRef.current.set(targetUserId, false);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        console.log(`[ICE] ${targetUserName}: ${state}`);
+
+        if (state === "connected" || state === "completed") {
+          memory.negotiationDoneRef.current.set(targetUserId, true);
+        }
+
+        memory.setPeers((prev) => {
+          const updated = new Map<string, PeerData>(prev);
+          const existing = updated.get(targetUserId);
+          if (existing) {
+            updated.set(targetUserId, { ...(existing as PeerData), connectionState: state });
+          }
+          return updated;
+        });
+
+        if (state === "failed") {
+          pc.restartIce();
+        }
+
+        if (state === "disconnected" || state === "closed") {
+          setTimeout(() => {
+            if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "closed") {
+              cleanupPeer(targetUserId);
+            }
+          }, 5000);
+        }
+      };
+
+      const peerData: PeerData = {
+        userId: targetUserId,
+        userName: targetUserName,
+        stream: null,
+        screenStream: null,
+        connection: pc,
+        isMuted: false,
+        isSharingScreen: false,
+        connectionState: pc.iceConnectionState,
+        audioLevel: 0,
+      };
+
+      memory.setPeers((prev) => {
+        const updated = new Map(prev);
+        updated.set(targetUserId, peerData);
+        return updated;
+      });
+      memory.peersRef.current.set(targetUserId, peerData);
+
+      return pc;
+    },
+    [userId, userName, setupAudioAnalyser, cleanupPeer, memory]
+  );
+
+  // Audio level polling
+  useEffect(() => {
+    const interval = setInterval(() => {
+      memory.analyserNodesRef.current.forEach((analyser, peerId) => {
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        const level = Math.min(avg / 128, 1);
+
+        memory.setPeers((prev) => {
+          const updated = new Map<string, PeerData>(prev);
+          const existing = updated.get(peerId);
+          if (existing && Math.abs((existing as PeerData).audioLevel - level) > 0.02) {
+            updated.set(peerId, { ...(existing as PeerData), audioLevel: level });
+          }
+          return updated;
+        });
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [memory]);
+
+  return {
+    createPeerConnection,
+    cleanupPeer,
+    flushIceCandidates,
+    setupAudioAnalyser
+  };
+}
