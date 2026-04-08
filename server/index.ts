@@ -12,6 +12,9 @@ interface RoomUser {
   joinedAt: number;
   isMuted: boolean;
   isSharingScreen: boolean;
+  role: "host" | "participant";
+  isMutedByHost: boolean;
+  isVideoDisabledByHost: boolean;
 }
 
 interface RoomInfo {
@@ -63,6 +66,7 @@ app.get("/api/rooms", (_req, res) => {
       userName: u.userName,
       isMuted: u.isMuted,
       isSharingScreen: u.isSharingScreen,
+      role: u.role,
     })),
   }));
   res.json({ rooms: roomList });
@@ -82,6 +86,9 @@ app.get("/api/rooms/:roomId", (req, res) => {
       userName: u.userName,
       isMuted: u.isMuted,
       isSharingScreen: u.isSharingScreen,
+      role: u.role,
+      isMutedByHost: u.isMutedByHost,
+      isVideoDisabledByHost: u.isVideoDisabledByHost,
     })),
   });
 });
@@ -130,6 +137,10 @@ io.on("connection", (socket: Socket) => {
 
       const room = rooms.get(roomId)!;
 
+      // Assign host to the first user or if there is no host
+      const hasHost = Array.from(room.users.values()).some((u) => u.role === "host");
+      const role = hasHost ? "participant" : "host";
+
       // Create user record
       const user: RoomUser = {
         userId,
@@ -138,6 +149,9 @@ io.on("connection", (socket: Socket) => {
         joinedAt: Date.now(),
         isMuted: false,
         isSharingScreen: false,
+        role,
+        isMutedByHost: false,
+        isVideoDisabledByHost: false,
       };
 
       room.users.set(userId, user);
@@ -154,12 +168,18 @@ io.on("connection", (socket: Socket) => {
           userName: u.userName,
           isMuted: u.isMuted,
           isSharingScreen: u.isSharingScreen,
+          role: u.role,
+          isMutedByHost: u.isMutedByHost,
+          isVideoDisabledByHost: u.isVideoDisabledByHost,
         }));
 
       socket.emit("room-users", existingUsers);
 
+      // Send the user their own complete state (including role)
+      socket.emit("room-joined-success", { role, isMutedByHost: false, isVideoDisabledByHost: false });
+
       // Broadcast to others that a new user joined
-      socket.to(roomId).emit("user-connected", userId, userName);
+      socket.to(roomId).emit("user-connected", userId, userName, role);
 
       // Broadcast updated user count
       io.to(roomId).emit("room-user-count", room.users.size);
@@ -241,6 +261,22 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
+  socket.on("user-video", (isVideoEnabled: boolean) => {
+    const mapping = socketToUser.get(socket.id);
+    if (!mapping) return;
+
+    const room = rooms.get(mapping.roomId);
+    if (!room) return;
+
+    const user = room.users.get(mapping.userId);
+    if (user) {
+      socket.to(mapping.roomId).emit("user-status-changed", {
+        userId: mapping.userId,
+        isVideoEnabled,
+      });
+    }
+  });
+
   // Chat message relay
   socket.on(
     "chat-message",
@@ -258,6 +294,53 @@ io.on("connection", (socket: Socket) => {
     }
   );
 
+  // --- Host Controls ---
+  socket.on("host-mute-user", ({ targetUserId, action }: { targetUserId: string; action: "mute" | "unmute" }) => {
+    const mapping = socketToUser.get(socket.id);
+    if (!mapping) return;
+
+    const room = rooms.get(mapping.roomId);
+    if (!room) return;
+
+    const hostUser = room.users.get(mapping.userId);
+    if (!hostUser || hostUser.role !== "host") return; // Only host can do this
+
+    const targetUser = room.users.get(targetUserId);
+    if (targetUser) {
+      targetUser.isMutedByHost = action === "mute";
+      
+      // Broadcast update to the entire room (including target user)
+      io.to(mapping.roomId).emit("user-media-control-updated", {
+        userId: targetUserId,
+        isMutedByHost: targetUser.isMutedByHost,
+        isVideoDisabledByHost: targetUser.isVideoDisabledByHost
+      });
+    }
+  });
+
+  socket.on("host-disable-video", ({ targetUserId, action }: { targetUserId: string; action: "disableVideo" | "enableVideo" }) => {
+    const mapping = socketToUser.get(socket.id);
+    if (!mapping) return;
+
+    const room = rooms.get(mapping.roomId);
+    if (!room) return;
+
+    const hostUser = room.users.get(mapping.userId);
+    if (!hostUser || hostUser.role !== "host") return; // Only host can do this
+
+    const targetUser = room.users.get(targetUserId);
+    if (targetUser) {
+      targetUser.isVideoDisabledByHost = action === "disableVideo";
+      
+      // Broadcast update to the entire room
+      io.to(mapping.roomId).emit("user-media-control-updated", {
+        userId: targetUserId,
+        isMutedByHost: targetUser.isMutedByHost,
+        isVideoDisabledByHost: targetUser.isVideoDisabledByHost
+      });
+    }
+  });
+
   // Disconnect handler
   socket.on("disconnect", () => {
     const mapping = socketToUser.get(socket.id);
@@ -271,7 +354,19 @@ io.on("connection", (socket: Socket) => {
           );
         }
 
+        const wasHost = user?.role === "host";
         room.users.delete(mapping.userId);
+
+        // Assign new host if the host left and room is not empty
+        if (wasHost && room.users.size > 0) {
+          // Simplest choice: first remaining user
+          const nextUser = room.users.values().next().value;
+          if (nextUser) {
+            nextUser.role = "host";
+            io.to(mapping.roomId).emit("new-host-assigned", nextUser.userId);
+            console.log(`[Room] ${nextUser.userName} is now the host of "${mapping.roomId}"`);
+          }
+        }
 
         // Broadcast disconnection
         io.to(mapping.roomId).emit("user-disconnected", mapping.userId);

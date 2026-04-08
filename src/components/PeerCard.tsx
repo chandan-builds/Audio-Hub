@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Video, Maximize2 } from "lucide-react";
+import { Video, Maximize2, MicOff, Mic, VideoOff, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PeerData } from "@/src/hooks/useWebRTC";
 import { useVisibilityPause } from "@/src/hooks/useVisibilityPause";
@@ -23,6 +23,8 @@ interface PeerCardProps {
   isActiveSpeaker?: boolean;
   onClickFocus?: () => void;
   isFocusTarget?: boolean;
+  localUserRole?: "host" | "participant" | "unknown";
+  onHostAction?: (targetUserId: string, action: "mute" | "unmute" | "disableVideo" | "enableVideo") => void;
 }
 
 function ConnectionDot({ state }: { state: RTCIceConnectionState | "local" }) {
@@ -90,6 +92,8 @@ export const PeerCard = memo(function PeerCard({
   isActiveSpeaker = false,
   onClickFocus,
   isFocusTarget = false,
+  localUserRole,
+  onHostAction,
 }: PeerCardProps) {
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
@@ -244,14 +248,39 @@ export const PeerCard = memo(function PeerCard({
               {onClickFocus && !isFocusTarget && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onClickFocus(); }}
-                  className="absolute top-2 left-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-white/80 hover:text-white"
+                  className="absolute top-2 left-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-white/80 hover:text-white z-10"
                   title="Focus on this speaker"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </button>
               )}
+              {/* Host Controls */}
+              {localUserRole === "host" && !isLocal && (
+                <div className="absolute top-2 right-6 p-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onHostAction?.(peer.userId, peer.isMutedByHost ? "unmute" : "mute"); }}
+                    className={cn(
+                      "p-1.5 rounded-lg text-white",
+                      peer.isMutedByHost ? "bg-emerald-500/80 hover:bg-emerald-500" : "bg-red-500/80 hover:bg-red-500"
+                    )}
+                    title={peer.isMutedByHost ? "Unmute Audio" : "Force Mute Audio"}
+                  >
+                    {peer.isMutedByHost ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onHostAction?.(peer.userId, peer.isVideoDisabledByHost ? "enableVideo" : "disableVideo"); }}
+                    className={cn(
+                      "p-1.5 rounded-lg text-white",
+                      peer.isVideoDisabledByHost ? "bg-emerald-500/80 hover:bg-emerald-500" : "bg-red-500/80 hover:bg-red-500"
+                    )}
+                    title={peer.isVideoDisabledByHost ? "Enable Video" : "Force Disable Video"}
+                  >
+                    {peer.isVideoDisabledByHost ? <Eye className="h-3.5 w-3.5" /> : <VideoOff className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              )}
               {/* Connection dot */}
-              <div className="absolute top-2 right-2">
+              <div className="absolute top-2 right-2 z-10">
                 <div className={cn(
                   "h-2.5 w-2.5 rounded-full shadow-md",
                   (isLocal || peer.connectionState === "connected" || peer.connectionState === "completed")
@@ -325,6 +354,38 @@ export const PeerCard = memo(function PeerCard({
                     </p>
                   )}
                 </div>
+                
+                {/* Host Controls */}
+                {localUserRole === "host" && !isLocal && (
+                  <div className="flex items-center justify-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onHostAction?.(peer.userId, peer.isMutedByHost ? "unmute" : "mute"); }}
+                      className={cn(
+                        "p-1 px-2 border text-xs rounded-md flex items-center gap-1",
+                        peer.isMutedByHost
+                          ? "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500"
+                          : "border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                      )}
+                      title={peer.isMutedByHost ? "Unmute Audio" : "Force Mute Audio"}
+                    >
+                      {peer.isMutedByHost ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}
+                      {peer.isMutedByHost ? "Unmute" : "Mute"}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onHostAction?.(peer.userId, peer.isVideoDisabledByHost ? "enableVideo" : "disableVideo"); }}
+                      className={cn(
+                        "p-1 px-2 border text-xs rounded-md flex items-center gap-1",
+                        peer.isVideoDisabledByHost
+                          ? "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500"
+                          : "border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                      )}
+                      title={peer.isVideoDisabledByHost ? "Enable Video" : "Force Disable Video"}
+                    >
+                      {peer.isVideoDisabledByHost ? <Eye className="h-3 w-3" /> : <VideoOff className="h-3 w-3" />}
+                      {peer.isVideoDisabledByHost ? "Show" : "Hide"}
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}

@@ -13,6 +13,9 @@ export interface PeerData {
   connectionState: RTCIceConnectionState;
   audioLevel: number;
   isSpeaking: boolean;
+  role?: "host" | "participant";
+  isMutedByHost?: boolean;
+  isVideoDisabledByHost?: boolean;
 }
 
 export interface ChatMessage {
@@ -45,4 +48,7 @@ export interface WebRTCContextState {
   activeSpeakerId: string | null;
   currentCameraId: string | null;
   videoQuality: VideoQuality;
+  userRole: "host" | "participant" | "unknown";
+  isMutedByHost: boolean;
+  isVideoDisabledByHost: boolean;
 }

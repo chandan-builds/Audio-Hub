@@ -38,6 +38,7 @@ export function useWebRTCCoordinator({ roomId, userId, userName, serverUrl }: Us
     // Signaling controls
     sendChatMessage: signalingAgent.sendChatMessage,
     disconnect: signalingAgent.disconnect,
+    triggerHostAction: signalingAgent.triggerHostAction,
     // Peer controls
     createPeerConnection: peerAgent.createPeerConnection,
     cleanupPeer: peerAgent.cleanupPeer,

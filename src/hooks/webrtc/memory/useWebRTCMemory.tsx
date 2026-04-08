@@ -18,6 +18,9 @@ export interface WebRTCMemoryContextValue {
   activeSpeakerId: string | null;
   currentCameraId: string | null;
   videoQuality: VideoQuality;
+  userRole: "host" | "participant" | "unknown";
+  isMutedByHost: boolean;
+  isVideoDisabledByHost: boolean;
 
   // Refs for logic internal tracking (Agent to Agent access)
   socketRef: React.MutableRefObject<Socket | null>;
@@ -48,6 +51,9 @@ export interface WebRTCMemoryContextValue {
   setActiveSpeakerId: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentCameraId: React.Dispatch<React.SetStateAction<string | null>>;
   setVideoQuality: React.Dispatch<React.SetStateAction<VideoQuality>>;
+  setUserRole: React.Dispatch<React.SetStateAction<"host" | "participant" | "unknown">>;
+  setIsMutedByHost: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsVideoDisabledByHost: React.Dispatch<React.SetStateAction<boolean>>;
   
   // Helpers
   addActivity: (event: ActivityEvent) => void;
@@ -76,7 +82,10 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [roomUserCount, setRoomUserCount] = useState(1);
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
   const [currentCameraId, setCurrentCameraId] = useState<string | null>(null);
-  const [videoQuality, setVideoQuality] = useState<VideoQuality>('medium');
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>('high');
+  const [userRole, setUserRole] = useState<"host" | "participant" | "unknown">("unknown");
+  const [isMutedByHost, setIsMutedByHost] = useState<boolean>(false);
+  const [isVideoDisabledByHost, setIsVideoDisabledByHost] = useState<boolean>(false);
 
   const socketRef = useRef<Socket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -111,6 +120,9 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     activeSpeakerId,
     currentCameraId,
     videoQuality,
+    userRole,
+    isMutedByHost,
+    isVideoDisabledByHost,
     
     socketRef,
     localStreamRef,
@@ -139,11 +151,14 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     setActiveSpeakerId,
     setCurrentCameraId,
     setVideoQuality,
+    setUserRole,
+    setIsMutedByHost,
+    setIsVideoDisabledByHost,
     addActivity,
   }), [
     peers, localStream, localScreenStream, localVideoStream, isMuted, isSharingScreen,
     isVideoEnabled, isConnected, chatMessages, activityLog, roomUserCount,
-    activeSpeakerId, currentCameraId, videoQuality, addActivity,
+    activeSpeakerId, currentCameraId, videoQuality, userRole, isMutedByHost, isVideoDisabledByHost, addActivity,
   ]);
 
   // Stable ref: always holds the latest value, but ref identity never changes.

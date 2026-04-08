@@ -367,6 +367,7 @@ export function RoomScreen({
     roomUserCount,
     activeSpeakerId,
     videoQuality,
+    userRole,
   } = useWebRTCMemory();
 
   const agents = useWebRTCCoordinator({
@@ -626,6 +627,8 @@ export function RoomScreen({
                 volume={globalVolume}
                 onClickFocus={() => setFocusedPeerId("local")}
                 isFocusTarget={focusedPeerId === "local"}
+                localUserRole={userRole}
+                onHostAction={agents.triggerHostAction}
               />
 
               {/* Remote peers */}
@@ -638,6 +641,8 @@ export function RoomScreen({
                     isActiveSpeaker={activeSpeakerId === id}
                     onClickFocus={() => setFocusedPeerId(id)}
                     isFocusTarget={focusedPeerId === id}
+                    localUserRole={userRole}
+                    onHostAction={agents.triggerHostAction}
                   />
                 ))}
               </AnimatePresence>

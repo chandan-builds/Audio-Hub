@@ -92,14 +92,48 @@ export function useSignalingAgent({
         users.forEach((user) => {
           createPeerRef.current(user.userId, user.userName, false);
           memory.addActivity({ type: "join", userName: user.userName, timestamp: Date.now() });
+
+          // Also set extended fields
+          setTimeout(() => {
+            memory.setPeers(prev => {
+              const p = prev.get(user.userId);
+              if (p) {
+                const newP = new Map(prev);
+                newP.set(user.userId, { ...p, role: user.role, isMutedByHost: user.isMutedByHost, isVideoDisabledByHost: user.isVideoDisabledByHost });
+                return newP;
+              }
+              return prev;
+            });
+          }, 50);
         });
       });
 
-      socket.on("user-connected", (newUserId: string, newUserName: string) => {
+      socket.on("room-joined-success", (data: { role: "host" | "participant" | "unknown", isMutedByHost: boolean, isVideoDisabledByHost: boolean }) => {
         if (!mounted) return;
-        console.log(`[Room] ${newUserName} connected`);
+        memory.setUserRole(data.role);
+        memory.setIsMutedByHost(data.isMutedByHost);
+        memory.setIsVideoDisabledByHost(data.isVideoDisabledByHost);
+      });
+
+      socket.on("user-connected", (newUserId: string, newUserName: string, role?: string) => {
+        if (!mounted) return;
+        console.log(`[Room] ${newUserName} connected (Role: ${role})`);
         createPeerRef.current(newUserId, newUserName, true);
         memory.addActivity({ type: "join", userName: newUserName, timestamp: Date.now() });
+
+        if (role) {
+          setTimeout(() => {
+            memory.setPeers(prev => {
+              const p = prev.get(newUserId);
+              if (p) {
+                const newP = new Map(prev);
+                newP.set(newUserId, { ...p, role: role as any, isMutedByHost: false, isVideoDisabledByHost: false });
+                return newP;
+              }
+              return prev;
+            });
+          }, 50);
+        }
       });
 
       socket.on("signal", async ({ from, fromName, signal, type }: any) => {
@@ -200,12 +234,76 @@ export function useSignalingAgent({
             }
             if (video !== undefined) {
               newData.isVideoEnabled = video;
-              mem.addActivity({ type: video ? "video-on" : "video-off", userName: (existing as PeerData).userName, timestamp: Date.now() });
+              if (video) {
+                mem.addActivity({ type: "video-on", userName: (existing as PeerData).userName, timestamp: Date.now() });
+              } else {
+                mem.addActivity({ type: "video-off", userName: (existing as PeerData).userName, timestamp: Date.now() });
+              }
             }
             updated.set(changedUserId, newData);
           }
           return updated;
         });
+      });
+
+      // --- Host Control Events ---
+      socket.on("user-media-control-updated", (data: { userId: string, isMutedByHost: boolean, isVideoDisabledByHost: boolean }) => {
+        if (!mounted) return;
+        const mem = memoryRef.current;
+        
+        if (data.userId === userId) {
+          // This is targeting the local user
+          mem.setIsMutedByHost(data.isMutedByHost);
+          mem.setIsVideoDisabledByHost(data.isVideoDisabledByHost);
+
+          if (data.isMutedByHost) {
+            mem.setIsMuted(true);
+            mem.localStreamRef.current?.getAudioTracks().forEach(t => t.enabled = false);
+            socket.emit("user-muted", true);
+          }
+
+          if (data.isVideoDisabledByHost) {
+            mem.setIsVideoEnabled(false);
+            mem.videoStreamRef.current?.getVideoTracks().forEach(t => t.enabled = false);
+            socket.emit("user-video", false); 
+          }
+        } else {
+          // Targeting remote peer, update PeerData
+          mem.setPeers((prev) => {
+            const updated = new Map<string, PeerData>(prev);
+            const peer = updated.get(data.userId);
+            if (peer) {
+              updated.set(data.userId, {
+                ...peer,
+                isMutedByHost: data.isMutedByHost,
+                isVideoDisabledByHost: data.isVideoDisabledByHost,
+                // also forcibly update their regular status locally so UI reflects it immediately
+                isMuted: data.isMutedByHost ? true : peer.isMuted,
+                isVideoEnabled: data.isVideoDisabledByHost ? false : peer.isVideoEnabled
+              });
+            }
+            return updated;
+          });
+        }
+      });
+
+      socket.on("new-host-assigned", (newHostId: string) => {
+        if (!mounted) return;
+        const mem = memoryRef.current;
+        
+        if (newHostId === userId) {
+          mem.setUserRole("host");
+          console.log("[Host] You are now the host!");
+        } else {
+          mem.setPeers((prev) => {
+            const updated = new Map<string, PeerData>(prev);
+            const peer = updated.get(newHostId);
+            if (peer) {
+              updated.set(newHostId, { ...peer, role: "host" });
+            }
+            return updated;
+          });
+        }
       });
 
       socket.on("room-user-count", (count: number) => {
@@ -250,6 +348,9 @@ export function useSignalingAgent({
       memory.setIsMuted(false);
       memory.setIsVideoEnabled(false);
       memory.setActiveSpeakerId(null);
+      memory.setUserRole("unknown");
+      memory.setIsMutedByHost(false);
+      memory.setIsVideoDisabledByHost(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, userId, userName, serverUrl]);
@@ -272,8 +373,20 @@ export function useSignalingAgent({
     memoryRef.current.socketRef.current?.disconnect();
   }, [memoryRef]);
 
+  const triggerHostAction = useCallback((targetUserId: string, action: "mute" | "unmute" | "disableVideo" | "enableVideo") => {
+    const memory = memoryRef.current;
+    if (memory.userRole !== "host") return;
+
+    if (action === "mute" || action === "unmute") {
+      memory.socketRef.current?.emit("host-mute-user", { targetUserId, action });
+    } else {
+      memory.socketRef.current?.emit("host-disable-video", { targetUserId, action });
+    }
+  }, [memoryRef]);
+
   return {
     sendChatMessage,
-    disconnect
+    disconnect,
+    triggerHostAction
   };
 }
