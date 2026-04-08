@@ -7,10 +7,10 @@ Real-time voice chat and screen sharing application built for modern browsers. C
 ## ✨ Features
 
 - 🎙️ **Crystal-Clear Audio** — Bluetooth-optimized, low-latency voice chat using Opus codecs.
-- 🖥️ **Screen Sharing** — Flawless screen sharing with dynamic focus mode and scaling.
-- 💬 **Text Chat** — Integrated real-time text messaging alongside voice and video.
+- 🖥️ **Interactive Screen Sharing** — Share screens with dynamic focus mode. Includes true **Fullscreen mode**, interactive **Mouse-wheel Zoom**, and **Drag-to-Pan** navigation controls on the active screenshare feed.
+- 💬 **Text Chat & Pinning** — Integrated real-time text messaging alongside voice and video. Features a persistent **Chat Pinning System** natively storing data in local storage, animating pinned chats to a dedicated sticky header.
 - 🌍 **Instant Global Rooms** — Instantly create and share URL-based rooms to connect with peers.
-- 🎨 **Premium UI/UX** — Glassmorphism aesthetics, responsive layouts, subtle animations, and sleek dark mode.
+- 🎨 **Premium UI/UX** — Glassmorphism aesthetics, responsive layouts, subtle framer-motion animations, custom UI tooltips, and a sleek dark mode.
 - 🔒 **Encrypted Peer-to-Peer** — Secure WebRTC P2P connection handling.
 - 🎯 **Device Management** — Switch microphones and audio devices gracefully.
 - 📊 **Audio Visualizer** — Real-time waveform-style visualizations to see who is speaking.
@@ -22,15 +22,16 @@ Audio-Hub/
 ├── src/              ← React frontend (Deployed to Vercel)
 │   ├── App.tsx       ← Main application wrapper & entry point
 │   ├── hooks/
-│   │   └── useWebRTC.ts  ← Core WebRTC communication logic
+│   │   └── webrtc/         ← Scalable Subagent architecture (Coordinator -> Agents -> Memory)
 │   └── components/
 │       ├── LobbyScreen.tsx
 │       └── room/
 │           ├── RoomScreen.tsx
 │           ├── PeerCard.tsx
 │           ├── ControlBar.tsx
-│           ├── ChatPanel.tsx
-│           └── DeviceSelector.tsx
+│           ├── ChatPanel.tsx     ← Chat Pinning & UI Logic
+│           ├── DeviceSelector.tsx
+│           └── ActivitySidebar.tsx
 │
 └── server/           ← Express + Socket.io signaling server (Deployed to Render)
     └── index.ts      ← Socket signaling events & WebRTC room metadata
