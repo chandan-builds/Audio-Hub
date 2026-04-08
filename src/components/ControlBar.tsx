@@ -27,6 +27,7 @@ export function ControlBar({
   onOpenDeviceSelector,
 }: ControlBarProps) {
   const [time, setTime] = useState(0);
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
   useEffect(() => {
     const interval = setInterval(() => setTime((t) => t + 1), 1000);
@@ -71,24 +72,26 @@ export function ControlBar({
         </TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onToggleScreenShare}
-            className={cn(
-              "h-12 w-12 rounded-full border-zinc-800/60 bg-zinc-900/60 hover:bg-zinc-800 transition-all duration-200",
-              isSharingScreen && "bg-cyan-950/30 border-cyan-700/50 text-cyan-400 hover:bg-cyan-950/50"
-            )}
-          >
-            {isSharingScreen ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="bg-zinc-900 border-zinc-800 text-zinc-300">
-          {isSharingScreen ? "Stop Sharing" : "Share Screen"}
-        </TooltipContent>
-      </Tooltip>
+      {!isMobile && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onToggleScreenShare}
+              className={cn(
+                "h-12 w-12 rounded-full border-zinc-800/60 bg-zinc-900/60 hover:bg-zinc-800 transition-all duration-200",
+                isSharingScreen && "bg-cyan-950/30 border-cyan-700/50 text-cyan-400 hover:bg-cyan-950/50"
+              )}
+            >
+              {isSharingScreen ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+            {isSharingScreen ? "Stop Sharing" : "Share Screen"}
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       <Tooltip>
         <TooltipTrigger asChild>

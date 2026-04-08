@@ -2,7 +2,7 @@ import { AnimatePresence } from "motion/react";
 import {
   Radio, Copy, Check, Users, MessageSquare
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect, memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -15,6 +15,36 @@ import { ChatPanel } from "./ChatPanel";
 import { DeviceSelector } from "./DeviceSelector";
 import { useWebRTCMemory, useWebRTCCoordinator } from "@/src/hooks/useWebRTC";
 import { cn } from "@/lib/utils";
+
+const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { stream: MediaStream, userName: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      if (videoRef.current.srcObject !== stream) {
+        videoRef.current.srcObject = stream;
+      }
+    }
+  }, [stream]);
+
+  return (
+    <div className="mb-6 w-full aspect-video md:h-[60vh] bg-black rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl shadow-black/50 relative group">
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        className="w-full h-full object-contain"
+      />
+      <div className="absolute top-4 left-4 shadow-lg">
+        <Badge className="bg-zinc-900/80 backdrop-blur-md border border-zinc-700/50 text-zinc-200">
+          {userName}'s screen
+        </Badge>
+      </div>
+    </div>
+  );
+});
+
 
 interface RoomScreenProps {
   roomId: string;
@@ -171,46 +201,18 @@ export function RoomScreen({
           <div className="max-w-7xl mx-auto">
             {/* Screen Share Focus Mode */}
             {screenSharer && (
-              <div className="mb-6">
-                <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl shadow-black/50">
-                  <video
-                    autoPlay
-                    muted
-                    playsInline
-                    ref={(el) => {
-                      if (el && screenSharer[1].screenStream) {
-                        el.srcObject = screenSharer[1].screenStream;
-                      }
-                    }}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <p className="text-xs text-zinc-500 text-center mt-2 font-mono">
-                  {screenSharer[1].userName}'s screen
-                </p>
-              </div>
+              <ScreenShareFocus 
+                stream={screenSharer[1].screenStream} 
+                userName={screenSharer[1].userName} 
+              />
             )}
 
             {/* Screen share from local */}
             {isSharingScreen && localScreenStream && !screenSharer && (
-              <div className="mb-6">
-                <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl shadow-black/50">
-                  <video
-                    autoPlay
-                    muted
-                    playsInline
-                    ref={(el) => {
-                      if (el && localScreenStream) {
-                        el.srcObject = localScreenStream;
-                      }
-                    }}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <p className="text-xs text-zinc-500 text-center mt-2 font-mono">
-                  Your screen
-                </p>
-              </div>
+              <ScreenShareFocus 
+                stream={localScreenStream} 
+                userName="Your" 
+              />
             )}
 
             {/* Participant Grid */}

@@ -156,21 +156,22 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
           });
         } else if (event.track.kind === "video") {
           memory.setPeers((prev) => {
-            const updated = new Map<string, PeerData>(prev);
-            const existing = updated.get(targetUserId);
-            if (existing) {
+            const existing = prev.get(targetUserId);
+            if (existing && existing.screenStream?.id !== incomingStream.id) {
+              const updated = new Map<string, PeerData>(prev);
               updated.set(targetUserId, {
-                ...(existing as PeerData),
+                ...existing,
                 screenStream: incomingStream,
                 isSharingScreen: true,
               });
+              return updated;
             }
-            return updated;
+            return prev;
           });
 
           const existingRef = memory.peersRef.current.get(targetUserId);
-          if (existingRef) {
-            memory.peersRef.current.set(targetUserId, { ...(existingRef as PeerData), screenStream: incomingStream, isSharingScreen: true });
+          if (existingRef && existingRef.screenStream?.id !== incomingStream.id) {
+            memory.peersRef.current.set(targetUserId, { ...existingRef, screenStream: incomingStream, isSharingScreen: true });
           }
 
           event.track.onended = () => {
@@ -280,21 +281,29 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
   useEffect(() => {
     const interval = setInterval(() => {
       const memory = memoryRef.current;
+      const updates = new Map<string, number>();
+
       memory.analyserNodesRef.current.forEach((analyser, peerId) => {
         const data = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
         const level = Math.min(avg / 128, 1);
-
-        memory.setPeers((prev) => {
-          const updated = new Map<string, PeerData>(prev);
-          const existing = updated.get(peerId);
-          if (existing && Math.abs((existing as PeerData).audioLevel - level) > 0.02) {
-            updated.set(peerId, { ...(existing as PeerData), audioLevel: level });
-          }
-          return updated;
-        });
+        updates.set(peerId, level);
       });
+
+      if (updates.size > 0) {
+        memory.setPeers((prev) => {
+          let updated: Map<string, PeerData> | null = null;
+          updates.forEach((level, peerId) => {
+            const existing = prev.get(peerId);
+            if (existing && Math.abs(existing.audioLevel - level) > 0.05) {
+              if (!updated) updated = new Map<string, PeerData>(prev);
+              updated.set(peerId, { ...existing, audioLevel: level });
+            }
+          });
+          return updated || prev;
+        });
+      }
     }, 100);
 
     return () => clearInterval(interval);

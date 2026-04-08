@@ -63,7 +63,8 @@ export function PiPKeepAlive() {
     draw();
 
     try {
-      const stream = canvas.captureStream(24);
+      // Reduced FPS to 10 for PiP keep alive performance
+      const stream = canvas.captureStream(10);
       video.srcObject = stream;
       
       video.onloadedmetadata = () => {
@@ -117,8 +118,6 @@ export function PiPKeepAlive() {
       }
     } catch (error) {
       console.error("PiP failed:", error);
-      // Fallback: if we still can't PiP, alert the user to tap again
-      alert("Background Mode is initializing. Please tap again in a moment.");
     }
   };
 
@@ -126,13 +125,13 @@ export function PiPKeepAlive() {
 
   return (
     <>
-      <canvas ref={canvasRef} width={400} height={400} className="fixed top-0 left-0 opacity-0 pointer-events-none z-[-9999]" />
+      <canvas ref={canvasRef} width={160} height={120} className="fixed top-0 left-0 w-[1px] h-[1px] overflow-hidden pointer-events-none z-[-9999] opacity-[0.01]" />
       <video 
         ref={videoRef} 
         muted 
         playsInline 
         autoPlay 
-        className="fixed top-0 left-0 w-10 h-10 opacity-0 pointer-events-none z-[-9999]" 
+        className="fixed top-0 left-0 w-[1px] h-[1px] overflow-hidden pointer-events-none z-[-9999] opacity-[0.01]" 
       />
 
       <Tooltip>

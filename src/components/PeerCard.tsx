@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, memo } from "react";
 import type { Key } from "react";
 import { motion } from "motion/react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -57,7 +57,7 @@ function AudioRing({ level }: { level: number }) {
   );
 }
 
-export function PeerCard({
+export const PeerCard = memo(function PeerCard({
   peer,
   isLocal,
   localUserName,
@@ -78,25 +78,29 @@ export function PeerCard({
 
   useEffect(() => {
     if (videoRef.current && videoStream) {
-      videoRef.current.srcObject = videoStream;
+      if (videoRef.current.srcObject !== videoStream) {
+        videoRef.current.srcObject = videoStream;
+      }
     }
   }, [videoStream]);
 
   useEffect(() => {
     if (audioRef.current && audioStream && !isLocal) {
-      audioRef.current.srcObject = audioStream;
-      audioRef.current.volume = 1.0;
-      // Explicitly play — autoplay may be blocked by browser policy
-      audioRef.current.play().catch((err) => {
-        console.warn("[Audio] Autoplay blocked, will retry on user interaction:", err);
-        const resumeAudio = () => {
-          audioRef.current?.play().catch(() => {});
-          document.removeEventListener("click", resumeAudio);
-          document.removeEventListener("keydown", resumeAudio);
-        };
-        document.addEventListener("click", resumeAudio);
-        document.addEventListener("keydown", resumeAudio);
-      });
+      if (audioRef.current.srcObject !== audioStream) {
+        audioRef.current.srcObject = audioStream;
+        audioRef.current.volume = 1.0;
+        // Explicitly play — autoplay may be blocked by browser policy
+        audioRef.current.play().catch((err) => {
+          console.warn("[Audio] Autoplay blocked, will retry on user interaction:", err);
+          const resumeAudio = () => {
+            audioRef.current?.play().catch(() => {});
+            document.removeEventListener("click", resumeAudio);
+            document.removeEventListener("keydown", resumeAudio);
+          };
+          document.addEventListener("click", resumeAudio);
+          document.addEventListener("keydown", resumeAudio);
+        });
+      }
     }
   }, [audioStream, isLocal]);
 
@@ -182,4 +186,4 @@ export function PeerCard({
       </Card>
     </motion.div>
   );
-}
+});
