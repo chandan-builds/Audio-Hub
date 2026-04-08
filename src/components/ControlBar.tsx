@@ -109,7 +109,7 @@ export function ControlBar({
         </TooltipContent>
       </Tooltip>
 
-      <PiPKeepAlive />
+      <PiPKeepAlive isMuted={isMuted} onToggleMute={onToggleMute} />
 
       <Separator orientation="vertical" className="h-8 bg-zinc-800/60 mx-1" />
 
