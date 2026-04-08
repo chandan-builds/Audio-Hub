@@ -182,7 +182,7 @@ export function useSignalingAgent({
         cleanupPeerRef.current(disconnectedUserId);
       });
 
-      socket.on("user-status-changed", ({ userId: changedUserId, isMuted: muted, isSharingScreen: sharing }: any) => {
+      socket.on("user-status-changed", ({ userId: changedUserId, isMuted: muted, isSharingScreen: sharing, isVideoEnabled: video }: any) => {
         if (!mounted) return;
         const mem = memoryRef.current;
         mem.setPeers((prev) => {
@@ -197,6 +197,10 @@ export function useSignalingAgent({
             if (sharing !== undefined) {
               newData.isSharingScreen = sharing;
               mem.addActivity({ type: sharing ? "screen-share" : "screen-stop", userName: (existing as PeerData).userName, timestamp: Date.now() });
+            }
+            if (video !== undefined) {
+              newData.isVideoEnabled = video;
+              mem.addActivity({ type: video ? "video-on" : "video-off", userName: (existing as PeerData).userName, timestamp: Date.now() });
             }
             updated.set(changedUserId, newData);
           }
@@ -224,6 +228,7 @@ export function useSignalingAgent({
       
       memory.localStreamRef.current?.getTracks().forEach((t) => t.stop());
       memory.screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+      memory.videoStreamRef.current?.getTracks().forEach((t) => t.stop());
       memory.peersRef.current.forEach((peer) => peer.connection.close());
       memory.peersRef.current.clear();
       if (memory.audioContextRef.current && memory.audioContextRef.current.state !== "closed") {
@@ -238,13 +243,14 @@ export function useSignalingAgent({
       memory.setPeers(new Map());
       memory.setLocalStream(null);
       memory.setLocalScreenStream(null);
+      memory.setLocalVideoStream(null);
       memory.setChatMessages([]);
       memory.setIsConnected(false);
       memory.setIsSharingScreen(false);
       memory.setIsMuted(false);
+      memory.setIsVideoEnabled(false);
+      memory.setActiveSpeakerId(null);
     };
-    // Only re-run when roomId, userId, userName, or serverUrl change.
-    // All callback refs and memoryRef are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, userId, userName, serverUrl]);
 

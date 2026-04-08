@@ -1,6 +1,6 @@
 import { useWebRTCCoordinator } from "./webrtc/useWebRTCCoordinator.ts";
 import { WebRTCProvider, useWebRTCMemory, useStableMemory } from "./webrtc/memory/useWebRTCMemory.tsx";
-import { PeerData, ChatMessage, ActivityEvent } from "./webrtc/types.ts";
+import { PeerData, ChatMessage, ActivityEvent, VideoQuality } from "./webrtc/types.ts";
 
 export {
   useWebRTCCoordinator,
@@ -13,4 +13,5 @@ export type {
   PeerData,
   ChatMessage,
   ActivityEvent,
+  VideoQuality,
 };

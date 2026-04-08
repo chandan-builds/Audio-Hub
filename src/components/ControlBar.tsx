@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {
-  Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Volume2, Volume1, VolumeX
+  Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Volume2, Volume1, VolumeX,
+  Video, VideoOff, SwitchCamera
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,11 @@ import { PiPKeepAlive } from "./PiPKeepAlive";
 interface ControlBarProps {
   isMuted: boolean;
   isSharingScreen: boolean;
+  isVideoEnabled: boolean;
   onToggleMute: () => void;
   onToggleScreenShare: () => Promise<void>;
+  onToggleVideo: () => Promise<void>;
+  onSwitchCamera: () => Promise<void>;
   onLeave: () => void;
   onOpenDeviceSelector: () => void;
   volume: number;
@@ -23,8 +27,11 @@ interface ControlBarProps {
 export function ControlBar({
   isMuted,
   isSharingScreen,
+  isVideoEnabled,
   onToggleMute,
   onToggleScreenShare,
+  onToggleVideo,
+  onSwitchCamera,
   onLeave,
   onOpenDeviceSelector,
   volume,
@@ -75,6 +82,45 @@ export function ControlBar({
           {isMuted ? "Unmute" : "Mute"}
         </TooltipContent>
       </Tooltip>
+
+      {/* Video Toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onToggleVideo}
+            className={cn(
+              "h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200 text-zinc-700 dark:text-zinc-300",
+              isVideoEnabled && "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-700/50 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-950/50"
+            )}
+          >
+            {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+          {isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Camera Switch (only when video is on & on mobile or multiple cameras) */}
+      {isVideoEnabled && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onSwitchCamera}
+              className="h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200 text-zinc-700 dark:text-zinc-300"
+            >
+              <SwitchCamera className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+            Switch Camera
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       {!isMobile && (
         <Tooltip>

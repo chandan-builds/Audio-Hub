@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Radio, Copy, Check, Users, MessageSquare, Maximize2, Minimize2, ZoomIn, ZoomOut, MousePointer2 
+  Radio, Copy, Check, Users, MessageSquare, Maximize2, Minimize2, ZoomIn, ZoomOut, MousePointer2,
+  Signal, SignalHigh, SignalMedium, SignalLow, X
 } from "lucide-react";
-import React, { useState, useRef, useEffect, memo } from "react";
+import React, { useState, useRef, useEffect, memo, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -17,13 +18,15 @@ import { DeviceSelector } from "./DeviceSelector";
 import { useWebRTCMemory, useWebRTCCoordinator } from "@/src/hooks/useWebRTC";
 import { cn } from "@/lib/utils";
 
+/* ───────────────────────────────────────────────────
+   Screen Share Focus — full-screen with zoom/pan
+   ─────────────────────────────────────────────────── */
 const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { stream: MediaStream, userName: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   
-  // Zoom & Pan state
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const isDragging = useRef(false);
@@ -38,15 +41,11 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
     }
   }, [stream]);
 
-  // Handle Fullscreen changes natively
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFull = !!document.fullscreenElement;
       setIsFullscreen(isFull);
-      if (!isFull) {
-        setScale(1);
-        setPosition({ x: 0, y: 0 });
-      }
+      if (!isFull) { setScale(1); setPosition({ x: 0, y: 0 }); }
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
@@ -55,46 +54,32 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
   const toggleFullscreen = async () => {
     if (!containerRef.current) return;
     try {
-      if (!document.fullscreenElement) {
-        await containerRef.current.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch (err) {
-      console.warn("Fullscreen toggle failed", err);
-    }
+      if (!document.fullscreenElement) await containerRef.current.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch (err) { console.warn("Fullscreen toggle failed", err); }
   };
 
   const showControls = () => {
     setControlsVisible(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
-      if (!isDragging.current && !document.querySelector('.zoom-controls:hover')) {
-        setControlsVisible(false);
-      }
+      if (!isDragging.current && !document.querySelector('.zoom-controls:hover')) setControlsVisible(false);
     }, 2500);
   };
 
-  const resetZoom = () => {
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-  };
+  const resetZoom = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
 
-  // Event handlers for drag & zoom
   const handleWheel = (e: React.WheelEvent) => {
-    if (!isFullscreen) return; // Only zoom inside fullscreen
+    if (!isFullscreen) return;
     e.preventDefault();
-    setScale((prev) => {
-      const newScale = prev - e.deltaY * 0.005;
-      return Math.min(Math.max(1, newScale), 5); // Clamped between 1x and 5x
-    });
+    setScale((prev) => Math.min(Math.max(1, prev - e.deltaY * 0.005), 5));
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (scale <= 1 || !isFullscreen) return;
     isDragging.current = true;
     lastPos.current = { x: e.clientX, y: e.clientY };
-    if (containerRef.current) containerRef.current.setPointerCapture(e.pointerId);
+    containerRef.current?.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -108,7 +93,7 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
 
   const handlePointerUp = (e: React.PointerEvent) => {
     isDragging.current = false;
-    if (containerRef.current) containerRef.current.releasePointerCapture(e.pointerId);
+    containerRef.current?.releasePointerCapture(e.pointerId);
   };
 
   return (
@@ -134,43 +119,24 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
           cursor: scale > 1 ? (isDragging.current ? "grabbing" : "grab") : "default"
         }}
       >
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-contain pointer-events-none"
-        />
+        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-contain pointer-events-none" />
       </div>
       
-      {/* HUD overlays */}
       <AnimatePresence>
         {(controlsVisible || !isFullscreen) && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 pointer-events-none"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none">
             <div className="absolute top-4 left-4">
               <Badge className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-200 shadow-lg pointer-events-auto">
                 {userName}'s screen
               </Badge>
             </div>
-            
             <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto zoom-controls">
               {isFullscreen && (
                 <>
                   <div className="flex items-center gap-1 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 p-1.5 rounded-lg shadow-lg">
-                    <button onClick={resetZoom} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Reset Zoom">
-                      <ZoomOut className="h-4 w-4" />
-                    </button>
-                    <span className="text-[10px] font-mono font-bold w-10 text-center text-zinc-800 dark:text-zinc-200">
-                      {Math.round(scale * 100)}%
-                    </span>
-                    <button onClick={() => setScale(s => Math.min(5, s + 0.5))} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Zoom In">
-                      <ZoomIn className="h-4 w-4" />
-                    </button>
+                    <button onClick={resetZoom} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Reset Zoom"><ZoomOut className="h-4 w-4" /></button>
+                    <span className="text-[10px] font-mono font-bold w-10 text-center text-zinc-800 dark:text-zinc-200">{Math.round(scale * 100)}%</span>
+                    <button onClick={() => setScale(s => Math.min(5, s + 0.5))} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Zoom In"><ZoomIn className="h-4 w-4" /></button>
                   </div>
                   {scale > 1 && (
                     <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 h-8 px-3 rounded-lg shadow-lg flex items-center gap-2">
@@ -180,7 +146,6 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
                   )}
                 </>
               )}
-              
               <button 
                 onClick={toggleFullscreen}
                 className="bg-white/80 hover:bg-white dark:bg-zinc-900/80 dark:hover:bg-zinc-900 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 p-2 rounded-lg shadow-lg text-zinc-700 dark:text-zinc-200 transition-colors"
@@ -197,6 +162,176 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
 });
 
 
+/* ───────────────────────────────────────────────────
+   Active Speaker Focus — large main view + side strip
+   ─────────────────────────────────────────────────── */
+const SpeakerFocusView = memo(function SpeakerFocusView({
+  focusPeer,
+  focusPeerId,
+  isLocal,
+  localUserName,
+  localStream,
+  localVideoStream,
+  isMuted,
+  isSharingScreen,
+  isVideoEnabled,
+  volume,
+  onClose,
+}: {
+  focusPeer: import("@/src/hooks/useWebRTC").PeerData;
+  focusPeerId: string;
+  isLocal: boolean;
+  localUserName?: string;
+  localStream?: MediaStream | null;
+  localVideoStream?: MediaStream | null;
+  isMuted?: boolean;
+  isSharingScreen?: boolean;
+  isVideoEnabled?: boolean;
+  volume: number;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const name = isLocal ? localUserName || "You" : focusPeer.userName;
+  const cameraStream = isLocal ? localVideoStream : focusPeer.videoStream;
+  const audioStream = isLocal ? localStream : focusPeer.stream;
+  const hasCameraVideo = !!cameraStream;
+  const muted = isLocal ? isMuted : focusPeer.isMuted;
+  const speaking = isLocal ? false : focusPeer.isSpeaking;
+
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      if (videoRef.current.srcObject !== cameraStream) {
+        videoRef.current.srcObject = cameraStream;
+      }
+    } else if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, [cameraStream]);
+
+  useEffect(() => {
+    if (audioRef.current && audioStream && !isLocal) {
+      if (audioRef.current.srcObject !== audioStream) {
+        audioRef.current.srcObject = audioStream;
+        audioRef.current.volume = volume;
+        audioRef.current.play().catch(() => {});
+      }
+    }
+  }, [audioStream, isLocal, volume]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="mb-6 w-full rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-800/50 shadow-2xl shadow-black/10 dark:shadow-black/50 relative group"
+    >
+      {/* Large video view */}
+      <div className="w-full aspect-video md:h-[55vh] relative bg-zinc-950 flex items-center justify-center">
+        {hasCameraVideo ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            muted={isLocal}
+            playsInline
+            className={cn(
+              "w-full h-full object-contain",
+              isLocal && "transform -scale-x-100"
+            )}
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-4">
+            <Avatar className="h-28 w-28 border-4 border-zinc-700">
+              <AvatarFallback className="bg-gradient-to-br from-zinc-700 to-zinc-800 text-zinc-200 text-4xl font-bold">
+                {name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <p className="text-zinc-300 text-lg font-semibold">{name}</p>
+          </div>
+        )}
+
+        {/* Overlay HUD */}
+        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <p className="text-base font-semibold text-white drop-shadow-lg">
+                {name} {isLocal && <span className="text-white/50 font-normal">(You)</span>}
+              </p>
+              {speaking && (
+                <div className="flex gap-[2px] items-end h-4">
+                  {[0, 1, 2, 3].map(i => (
+                    <motion.div
+                      key={i}
+                      animate={{ height: [4, 12 + Math.random() * 6, 4] }}
+                      transition={{ duration: 0.4 + i * 0.08, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-[3px] bg-emerald-400 rounded-full"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {muted && (
+                <Badge variant="outline" className="text-[10px] border-red-500/50 text-red-300 bg-red-950/40 px-2 py-0.5">
+                  MUTED
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px] border-violet-500/40 text-violet-300 bg-violet-950/30 px-2 py-0.5">
+                FOCUS
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        {/* Close/exit focus button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 p-2 bg-black/50 hover:bg-black/70 rounded-xl text-white/70 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+          title="Exit Focus Mode"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {!isLocal && <audio ref={audioRef} autoPlay playsInline />}
+    </motion.div>
+  );
+});
+
+
+/* ───────────────────────────────────────────────────
+   Video Quality Badge
+   ─────────────────────────────────────────────────── */
+function VideoQualityBadge({ quality }: { quality: string }) {
+  const config = {
+    high: { icon: Signal, label: "HD", color: "text-emerald-500 border-emerald-900/40 bg-emerald-950/20" },
+    medium: { icon: SignalHigh, label: "SD", color: "text-amber-500 border-amber-900/40 bg-amber-950/20" },
+    low: { icon: SignalMedium, label: "LD", color: "text-red-500 border-red-900/40 bg-red-950/20" },
+    off: { icon: SignalLow, label: "OFF", color: "text-zinc-500 border-zinc-700/40 bg-zinc-950/20" },
+  }[quality] || { icon: Signal, label: "?", color: "text-zinc-500 border-zinc-700/40 bg-zinc-950/20" };
+
+  const Icon = config.icon;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="outline" className={cn("text-[9px] font-mono gap-1 px-1.5", config.color)}>
+          <Icon className="h-3 w-3" />
+          {config.label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+        Video quality: {quality} ({quality === 'high' ? '720p' : quality === 'medium' ? '480p' : quality === 'low' ? '240p' : 'off'})
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+
+/* ───────────────────────────────────────────────────
+   RoomScreen — Main Layout
+   ─────────────────────────────────────────────────── */
 interface RoomScreenProps {
   roomId: string;
   userName: string;
@@ -216,32 +351,54 @@ export function RoomScreen({
   const [deviceSelectorOpen, setDeviceSelectorOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [globalVolume, setGlobalVolume] = useState(1);
+  const [focusedPeerId, setFocusedPeerId] = useState<string | null>(null);
 
-  // Initialize Memory state
   const {
     peers,
     localStream,
     localScreenStream,
+    localVideoStream,
     isMuted,
     isSharingScreen,
+    isVideoEnabled,
     isConnected,
     chatMessages,
     activityLog,
-    roomUserCount
+    roomUserCount,
+    activeSpeakerId,
+    videoQuality,
   } = useWebRTCMemory();
 
-  // Boot up the Coordinator (which initializes sub-agents)
   const agents = useWebRTCCoordinator({
-    roomId,
-    userId,
-    userName,
-    serverUrl
+    roomId, userId, userName, serverUrl
   });
 
-  const peerArray = Array.from(peers.entries());
+  const peerArray = useMemo(() => Array.from(peers.entries()), [peers]);
 
   // Find screen sharer for focus mode
   const screenSharer = peerArray.find(([_, p]) => p.isSharingScreen && p.screenStream);
+
+  // Auto-adjust video quality based on peer count
+  useEffect(() => {
+    const count = peerArray.length;
+    if (count >= 10) agents.setVideoQuality('low');
+    else if (count >= 5) agents.setVideoQuality('medium');
+    else agents.setVideoQuality('high');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peerArray.length]);
+
+  // Auto-focus on active speaker if no manual focus is set and we have video users
+  useEffect(() => {
+    if (focusedPeerId) return; // Don't override manual focus
+    // No auto-focus — user must click the focus button
+  }, [activeSpeakerId, focusedPeerId]);
+
+  // Clear focus if focused peer disconnects
+  useEffect(() => {
+    if (focusedPeerId && focusedPeerId !== "local" && !peers.has(focusedPeerId)) {
+      setFocusedPeerId(null);
+    }
+  }, [peers, focusedPeerId]);
 
   const handleCopyRoomId = () => {
     const link = `${window.location.origin}?room=${roomId}`;
@@ -249,6 +406,26 @@ export function RoomScreen({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Determine focus view data
+  const focusPeerData = focusedPeerId === "local"
+    ? {
+        userId: "local",
+        userName,
+        stream: localStream,
+        screenStream: localScreenStream,
+        videoStream: localVideoStream,
+        connection: null as any,
+        isMuted,
+        isSharingScreen,
+        isVideoEnabled,
+        connectionState: "connected" as RTCIceConnectionState,
+        audioLevel: 0,
+        isSpeaking: false,
+      }
+    : focusedPeerId ? peers.get(focusedPeerId) : null;
+
+  const isAnyVideoOn = isVideoEnabled || peerArray.some(([_, p]) => p.isVideoEnabled);
 
   return (
     <div className="flex flex-col h-[100dvh] bg-zinc-50 dark:bg-[#0a0a0a]">
@@ -320,9 +497,11 @@ export function RoomScreen({
             {roomUserCount}
           </Badge>
 
+          {/* Video quality indicator (only when video is in use) */}
+          {isAnyVideoOn && <VideoQualityBadge quality={videoQuality} />}
+
           <ThemeToggle isCompact />
 
-          {/* Chat toggle for desktop */}
           <Button
             variant="outline"
             size="icon"
@@ -337,10 +516,7 @@ export function RoomScreen({
 
           <Button
             variant="destructive"
-            onClick={() => {
-              agents.disconnect();
-              onLeave();
-            }}
+            onClick={() => { agents.disconnect(); onLeave(); }}
             size="sm"
             className="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 hover:bg-red-100 dark:hover:bg-red-900/40 hidden xl:flex h-8 text-xs font-semibold"
           >
@@ -361,18 +537,33 @@ export function RoomScreen({
               />
             )}
 
-            {/* Screen share from local */}
             {isSharingScreen && localScreenStream && !screenSharer && (
-              <ScreenShareFocus 
-                stream={localScreenStream} 
-                userName="Your" 
-              />
+              <ScreenShareFocus stream={localScreenStream} userName="Your" />
             )}
+
+            {/* ─── Active Speaker Focus Mode ─── */}
+            <AnimatePresence>
+              {focusPeerData && focusedPeerId && !screenSharer && (
+                <SpeakerFocusView
+                  focusPeer={focusPeerData}
+                  focusPeerId={focusedPeerId}
+                  isLocal={focusedPeerId === "local"}
+                  localUserName={userName}
+                  localStream={localStream}
+                  localVideoStream={localVideoStream}
+                  isMuted={isMuted}
+                  isSharingScreen={isSharingScreen}
+                  isVideoEnabled={isVideoEnabled}
+                  volume={globalVolume}
+                  onClose={() => setFocusedPeerId(null)}
+                />
+              )}
+            </AnimatePresence>
 
             {/* Participant Grid */}
             <div className={cn(
               "grid gap-4",
-              screenSharer
+              (screenSharer || focusedPeerId)
                 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             )}>
@@ -383,24 +574,38 @@ export function RoomScreen({
                   userName,
                   stream: localStream,
                   screenStream: localScreenStream,
+                  videoStream: localVideoStream,
                   connection: null as any,
                   isMuted,
                   isSharingScreen,
+                  isVideoEnabled,
                   connectionState: "connected",
                   audioLevel: 0,
+                  isSpeaking: false,
                 }}
                 isLocal
                 localUserName={userName}
                 isMuted={isMuted}
                 isSharingScreen={isSharingScreen}
+                isVideoEnabled={isVideoEnabled}
                 localStream={localStream}
+                localVideoStream={localVideoStream}
                 volume={globalVolume}
+                onClickFocus={() => setFocusedPeerId("local")}
+                isFocusTarget={focusedPeerId === "local"}
               />
 
               {/* Remote peers */}
               <AnimatePresence>
                 {peerArray.map(([id, peer]) => (
-                  <PeerCard key={id} peer={peer} volume={globalVolume} />
+                  <PeerCard 
+                    key={id} 
+                    peer={peer} 
+                    volume={globalVolume}
+                    isActiveSpeaker={activeSpeakerId === id}
+                    onClickFocus={() => setFocusedPeerId(id)}
+                    isFocusTarget={focusedPeerId === id}
+                  />
                 ))}
               </AnimatePresence>
 
@@ -416,29 +621,24 @@ export function RoomScreen({
           </div>
         </div>
 
-        {/* Activity Sidebar */}
-        <ActivitySidebar
-          activityLog={activityLog}
-          roomUserCount={roomUserCount}
-        />
+        <ActivitySidebar activityLog={activityLog} roomUserCount={roomUserCount} />
       </main>
 
       {/* Control Bar */}
       <ControlBar
         isMuted={isMuted}
         isSharingScreen={isSharingScreen}
+        isVideoEnabled={isVideoEnabled}
         onToggleMute={agents.toggleMute}
         onToggleScreenShare={agents.toggleScreenShare}
-        onLeave={() => {
-          agents.disconnect();
-          onLeave();
-        }}
+        onToggleVideo={agents.toggleVideo}
+        onSwitchCamera={() => agents.switchCamera()}
+        onLeave={() => { agents.disconnect(); onLeave(); }}
         onOpenDeviceSelector={() => setDeviceSelectorOpen(true)}
         volume={globalVolume}
         onVolumeChange={setGlobalVolume}
       />
 
-      {/* Chat Panel */}
       <ChatPanel
         messages={chatMessages}
         onSendMessage={agents.sendChatMessage}
@@ -446,7 +646,6 @@ export function RoomScreen({
         onToggle={() => setChatOpen(!chatOpen)}
       />
 
-      {/* Device Selector Modal */}
       <DeviceSelector
         isOpen={deviceSelectorOpen}
         onClose={() => setDeviceSelectorOpen(false)}

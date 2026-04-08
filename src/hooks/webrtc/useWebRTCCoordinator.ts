@@ -28,8 +28,20 @@ export function useWebRTCCoordinator({ roomId, userId, userName, serverUrl }: Us
   });
 
   return {
-    ...mediaAgent,
-    ...signalingAgent,
-    ...peerAgent
+    // Media controls
+    toggleMute: mediaAgent.toggleMute,
+    toggleVideo: mediaAgent.toggleVideo,
+    toggleScreenShare: mediaAgent.toggleScreenShare,
+    switchCamera: mediaAgent.switchCamera,
+    switchAudioDevice: mediaAgent.switchAudioDevice,
+    setVideoQuality: mediaAgent.setVideoQuality,
+    // Signaling controls
+    sendChatMessage: signalingAgent.sendChatMessage,
+    disconnect: signalingAgent.disconnect,
+    // Peer controls
+    createPeerConnection: peerAgent.createPeerConnection,
+    cleanupPeer: peerAgent.cleanupPeer,
+    flushIceCandidates: peerAgent.flushIceCandidates,
+    setupAudioAnalyser: peerAgent.setupAudioAnalyser,
   };
 }
