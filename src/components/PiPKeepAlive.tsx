@@ -65,6 +65,12 @@ export function PiPKeepAlive() {
     try {
       const stream = canvas.captureStream(24);
       video.srcObject = stream;
+      
+      video.onloadedmetadata = () => {
+        video.play().catch(console.error);
+      };
+      
+      // Attempt play immediately as well
       video.play().catch(console.error);
     } catch (err) {
       console.error(err);
@@ -96,6 +102,14 @@ export function PiPKeepAlive() {
       const video = videoRef.current;
       if (!video) return;
 
+      // If the browser hasn't loaded video metadata yet, it blocks PiP requests.
+      // E.g., if mobile Chrome suspended decoding because of opacity:0 / -z-50.
+      if (video.readyState === 0) {
+        video.load();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        await video.play().catch(console.error);
+      }
+
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
       } else {
@@ -103,6 +117,8 @@ export function PiPKeepAlive() {
       }
     } catch (error) {
       console.error("PiP failed:", error);
+      // Fallback: if we still can't PiP, alert the user to tap again
+      alert("Background Mode is initializing. Please tap again in a moment.");
     }
   };
 
@@ -110,13 +126,13 @@ export function PiPKeepAlive() {
 
   return (
     <>
-      <canvas ref={canvasRef} width={300} height={300} className="absolute opacity-0 pointer-events-none w-px h-px -z-50" />
+      <canvas ref={canvasRef} width={400} height={400} className="fixed top-0 left-0 opacity-0 pointer-events-none z-[-9999]" />
       <video 
         ref={videoRef} 
         muted 
         playsInline 
         autoPlay 
-        className="absolute opacity-0 pointer-events-none w-px h-px -z-50" 
+        className="fixed top-0 left-0 w-10 h-10 opacity-0 pointer-events-none z-[-9999]" 
       />
 
       <Tooltip>
