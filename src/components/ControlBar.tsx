@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Volume2
+  Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Volume2, Volume1, VolumeX
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ interface ControlBarProps {
   onToggleScreenShare: () => Promise<void>;
   onLeave: () => void;
   onOpenDeviceSelector: () => void;
+  volume: number;
+  onVolumeChange: (volume: number) => void;
 }
 
 export function ControlBar({
@@ -25,6 +27,8 @@ export function ControlBar({
   onToggleScreenShare,
   onLeave,
   onOpenDeviceSelector,
+  volume,
+  onVolumeChange,
 }: ControlBarProps) {
   const [time, setTime] = useState(0);
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
@@ -129,12 +133,23 @@ export function ControlBar({
         </TooltipContent>
       </Tooltip>
 
-      {/* Volume indicator */}
-      <div className="absolute right-6 hidden sm:flex items-center gap-2">
-        <Volume2 className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-600" />
-        <div className="w-16 h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-          <div className="h-full w-4/5 bg-zinc-400 dark:bg-zinc-600 rounded-full" />
-        </div>
+      {/* Volume Control */}
+      <div className="absolute right-6 hidden sm:flex items-center gap-2 group">
+        <button 
+          onClick={() => onVolumeChange(volume === 0 ? 1 : 0)}
+          className="text-zinc-400 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors focus:outline-none"
+        >
+          {volume === 0 ? <VolumeX className="h-4 w-4" /> : volume < 0.5 ? <Volume1 className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+        <input 
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={volume}
+          onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+          className="w-20 h-1.5 appearance-none bg-zinc-200 dark:bg-zinc-800 rounded-full cursor-pointer accent-violet-500 hover:accent-violet-600 dark:accent-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-all"
+        />
       </div>
     </motion.div>
   );

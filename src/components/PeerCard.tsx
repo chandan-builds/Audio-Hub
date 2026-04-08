@@ -15,6 +15,7 @@ interface PeerCardProps {
   isMuted?: boolean;
   isSharingScreen?: boolean;
   localStream?: MediaStream | null;
+  volume?: number;
 }
 
 function ConnectionDot({ state }: { state: RTCIceConnectionState | "local" }) {
@@ -64,6 +65,7 @@ export const PeerCard = memo(function PeerCard({
   isMuted,
   isSharingScreen,
   localStream,
+  volume = 1.0,
 }: PeerCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -88,7 +90,7 @@ export const PeerCard = memo(function PeerCard({
     if (audioRef.current && audioStream && !isLocal) {
       if (audioRef.current.srcObject !== audioStream) {
         audioRef.current.srcObject = audioStream;
-        audioRef.current.volume = 1.0;
+        audioRef.current.volume = volume;
         // Explicitly play — autoplay may be blocked by browser policy
         audioRef.current.play().catch((err) => {
           console.warn("[Audio] Autoplay blocked, will retry on user interaction:", err);
@@ -102,7 +104,13 @@ export const PeerCard = memo(function PeerCard({
         });
       }
     }
-  }, [audioStream, isLocal]);
+  }, [audioStream, isLocal, volume]);
+
+  useEffect(() => {
+    if (audioRef.current && !isLocal) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume, isLocal]);
 
   return (
     <motion.div

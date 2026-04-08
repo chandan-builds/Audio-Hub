@@ -65,6 +65,7 @@ export function RoomScreen({
   const [chatOpen, setChatOpen] = useState(false);
   const [deviceSelectorOpen, setDeviceSelectorOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [globalVolume, setGlobalVolume] = useState(1);
 
   // Initialize Memory state
   const {
@@ -243,12 +244,13 @@ export function RoomScreen({
                 isMuted={isMuted}
                 isSharingScreen={isSharingScreen}
                 localStream={localStream}
+                volume={globalVolume}
               />
 
               {/* Remote peers */}
               <AnimatePresence>
                 {peerArray.map(([id, peer]) => (
-                  <PeerCard key={id} peer={peer} />
+                  <PeerCard key={id} peer={peer} volume={globalVolume} />
                 ))}
               </AnimatePresence>
 
@@ -282,6 +284,8 @@ export function RoomScreen({
           onLeave();
         }}
         onOpenDeviceSelector={() => setDeviceSelectorOpen(true)}
+        volume={globalVolume}
+        onVolumeChange={setGlobalVolume}
       />
 
       {/* Chat Panel */}
