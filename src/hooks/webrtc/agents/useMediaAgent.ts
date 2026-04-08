@@ -1,10 +1,11 @@
 import { useCallback } from "react";
-import { useWebRTCMemory } from "../memory/useWebRTCMemory";
+import { useStableMemory } from "../memory/useWebRTCMemory";
 
 export function useMediaAgent() {
-  const memory = useWebRTCMemory();
+  const memoryRef = useStableMemory();
 
   const toggleMute = useCallback(() => {
+    const memory = memoryRef.current;
     if (memory.localStreamRef.current) {
       const audioTrack = memory.localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
@@ -14,10 +15,14 @@ export function useMediaAgent() {
         memory.socketRef.current?.emit("user-muted", newMuted);
       }
     }
-  }, [memory]);
+  }, [memoryRef]);
 
   const toggleScreenShare = useCallback(async () => {
-    if (memory.isSharingScreen) {
+    const memory = memoryRef.current;
+    // Use the ref to check current sharing state (stable, not stale)
+    const currentlySharing = !!memory.screenStreamRef.current;
+
+    if (currentlySharing) {
       memory.screenStreamRef.current?.getTracks().forEach((t) => t.stop());
       memory.screenStreamRef.current = null;
       memory.setLocalScreenStream(null);
@@ -49,11 +54,12 @@ export function useMediaAgent() {
         });
 
         videoTrack.onended = () => {
-          memory.screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-          memory.screenStreamRef.current = null;
-          memory.setLocalScreenStream(null);
+          const mem = memoryRef.current;
+          mem.screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+          mem.screenStreamRef.current = null;
+          mem.setLocalScreenStream(null);
 
-          memory.peersRef.current.forEach((peer) => {
+          mem.peersRef.current.forEach((peer) => {
             const senders = peer.connection.getSenders();
             senders.forEach((sender) => {
               if (sender.track?.kind === "video") {
@@ -62,8 +68,8 @@ export function useMediaAgent() {
             });
           });
 
-          memory.setIsSharingScreen(false);
-          memory.socketRef.current?.emit("user-screen-share", false);
+          mem.setIsSharingScreen(false);
+          mem.socketRef.current?.emit("user-screen-share", false);
         };
 
         memory.setIsSharingScreen(true);
@@ -72,9 +78,10 @@ export function useMediaAgent() {
         console.error("[Screen] Share failed:", err);
       }
     }
-  }, [memory]);
+  }, [memoryRef]);
 
   const switchAudioDevice = useCallback(async (deviceId: string) => {
+    const memory = memoryRef.current;
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
         audio: { deviceId: { exact: deviceId } }
@@ -89,7 +96,9 @@ export function useMediaAgent() {
       memory.setLocalStream(newStream);
       
       const newTrack = newStream.getAudioTracks()[0];
-      if (memory.isMuted) {
+      // Check actual track state instead of stale isMuted state
+      const currentTrack = oldStream?.getAudioTracks()[0];
+      if (currentTrack && !currentTrack.enabled) {
         newTrack.enabled = false;
       }
 
@@ -102,7 +111,7 @@ export function useMediaAgent() {
     } catch (err) {
       console.error("Failed to switch actual audio device:", err);
     }
-  }, [memory]);
+  }, [memoryRef]);
 
   return {
     toggleMute,

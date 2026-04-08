@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useRef, useCallback, useMemo, ReactNode } from "react";
 import { Socket } from "socket.io-client";
 import { PeerData, ChatMessage, ActivityEvent } from "../types";
 
@@ -44,6 +44,13 @@ export interface WebRTCMemoryContextValue {
 
 const WebRTCMemoryContext = createContext<WebRTCMemoryContextValue | null>(null);
 
+/**
+ * A stable ref that holds the latest memory value.
+ * Agent hooks should use this via useStableMemory() so their
+ * useCallback/useEffect dependencies never change identity.
+ */
+const StableMemoryRefContext = createContext<React.MutableRefObject<WebRTCMemoryContextValue> | null>(null);
+
 export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [peers, setPeers] = useState<Map<string, PeerData>>(new Map());
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -72,7 +79,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     setActivityLog((prev) => [event, ...prev].slice(0, 50));
   }, []);
 
-  const value: WebRTCMemoryContextValue = {
+  const value: WebRTCMemoryContextValue = useMemo(() => ({
     peers,
     localStream,
     localScreenStream,
@@ -105,19 +112,46 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     setChatMessages,
     setRoomUserCount,
     addActivity,
-  };
+  }), [
+    peers, localStream, localScreenStream, isMuted, isSharingScreen,
+    isConnected, chatMessages, activityLog, roomUserCount, addActivity,
+  ]);
+
+  // Stable ref: always holds the latest value, but ref identity never changes.
+  // Agent hooks should depend on this ref instead of the value object.
+  const stableRef = useRef<WebRTCMemoryContextValue>(value);
+  stableRef.current = value;
 
   return (
-    <WebRTCMemoryContext.Provider value={value}>
-      {children}
-    </WebRTCMemoryContext.Provider>
+    <StableMemoryRefContext.Provider value={stableRef}>
+      <WebRTCMemoryContext.Provider value={value}>
+        {children}
+      </WebRTCMemoryContext.Provider>
+    </StableMemoryRefContext.Provider>
   );
 }
 
+/**
+ * Use this in UI components that need to READ reactive state (peers, isMuted, etc).
+ * Re-renders the component when state changes.
+ */
 export function useWebRTCMemory() {
   const context = useContext(WebRTCMemoryContext);
   if (!context) {
     throw new Error("useWebRTCMemory must be used within a WebRTCProvider");
   }
   return context;
+}
+
+/**
+ * Use this in agent hooks (usePeerAgent, useSignalingAgent, useMediaAgent).
+ * Returns a STABLE ref whose .current always has the latest memory.
+ * Safe to use in useCallback/useEffect dependency arrays without causing re-runs.
+ */
+export function useStableMemory() {
+  const ref = useContext(StableMemoryRefContext);
+  if (!ref) {
+    throw new Error("useStableMemory must be used within a WebRTCProvider");
+  }
+  return ref;
 }

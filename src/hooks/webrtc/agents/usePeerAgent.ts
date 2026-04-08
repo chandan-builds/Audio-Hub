@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { useWebRTCMemory } from "../memory/useWebRTCMemory";
+import { useStableMemory } from "../memory/useWebRTCMemory";
 import { setOpusLowLatency } from "../tools/sdpTools";
 import { PeerData } from "../types";
 
@@ -9,10 +9,11 @@ interface UsePeerAgentOptions {
 }
 
 export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
-  const memory = useWebRTCMemory();
+  const memoryRef = useStableMemory();
 
   const setupAudioAnalyser = useCallback(
     (stream: MediaStream, peerId: string) => {
+      const memory = memoryRef.current;
       if (!memory.audioContextRef.current || memory.audioContextRef.current.state === "closed") {
         memory.audioContextRef.current = new AudioContext();
       }
@@ -24,10 +25,11 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
       source.connect(analyser);
       memory.analyserNodesRef.current.set(peerId, analyser);
     },
-    [memory]
+    [memoryRef]
   );
 
   const cleanupPeer = useCallback((peerId: string) => {
+    const memory = memoryRef.current;
     const peer = memory.peersRef.current.get(peerId);
     if (peer) {
       peer.connection.close();
@@ -44,9 +46,10 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
         return updated;
       });
     }
-  }, [memory]);
+  }, [memoryRef]);
 
   const flushIceCandidates = useCallback(async (peerId: string, pc: RTCPeerConnection) => {
+    const memory = memoryRef.current;
     const buffered = memory.iceCandidateBufferRef.current.get(peerId);
     if (buffered && buffered.length > 0) {
       console.log(`[ICE] Flushing ${buffered.length} buffered candidates for ${peerId}`);
@@ -59,7 +62,7 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
       }
       memory.iceCandidateBufferRef.current.set(peerId, []);
     }
-  }, [memory]);
+  }, [memoryRef]);
 
   const createPeerConnection = useCallback(
     (
@@ -67,6 +70,7 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
       targetUserName: string,
       isInitiator: boolean
     ): RTCPeerConnection => {
+      const memory = memoryRef.current;
       const pc = new RTCPeerConnection({
         iceServers: memory.iceServersRef.current,
         iceCandidatePoolSize: 10,
@@ -275,12 +279,13 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
 
       return pc;
     },
-    [userId, userName, setupAudioAnalyser, cleanupPeer, memory]
+    [userId, userName, setupAudioAnalyser, cleanupPeer, memoryRef]
   );
 
   // Audio level polling
   useEffect(() => {
     const interval = setInterval(() => {
+      const memory = memoryRef.current;
       memory.analyserNodesRef.current.forEach((analyser, peerId) => {
         const data = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(data);
@@ -299,7 +304,7 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [memory]);
+  }, [memoryRef]);
 
   return {
     createPeerConnection,
