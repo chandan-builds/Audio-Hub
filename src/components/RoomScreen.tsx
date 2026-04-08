@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ThemeToggle } from "./ThemeToggle";
 import { PeerCard } from "./PeerCard";
 import { ControlBar } from "./ControlBar";
 import { ActivitySidebar } from "./ActivitySidebar";
@@ -167,6 +168,8 @@ export function RoomScreen({
             <Users className="h-3 w-3" />
             {roomUserCount}
           </Badge>
+
+          <ThemeToggle isCompact />
 
           {/* Chat toggle for desktop */}
           <Button
