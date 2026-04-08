@@ -1,5 +1,5 @@
 // src/components/room/RoomScreen.tsx
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWebRTCCoordinator, useWebRTCMemory } from "@/src/hooks/useWebRTC";
 import { ActivitySidebar } from "../activity";
@@ -9,6 +9,9 @@ import { RoomHeader } from "./RoomHeader";
 import { ControlBar } from "./ControlBar";
 import { ParticipantGrid } from "./ParticipantGrid";
 import { ScreenShareView } from "./ScreenShareView";
+
+// A 1-sample silent WAV file to keep media sessions active in the background
+const SILENT_AUDIO_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
 interface RoomScreenProps {
   roomId: string;
@@ -47,8 +50,29 @@ export function RoomScreen({ roomId, userName, userId, serverUrl, onLeave }: Roo
   // Find the first peer sharing their screen, if any
   const sharingPeer = peerArray.find(([_, peer]) => peer.screenStream != null);
 
+  // Play a silent audio loop to prevent mobile browsers (like Chrome on Android) 
+  // from suspending the microphone stream when the app goes to the background.
+  const silentAudioRef = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (silentAudioRef.current) {
+      silentAudioRef.current.volume = 0.01; // tiny volume so it doesn't trigger noise, but not 0 so it counts as active
+      silentAudioRef.current.play().catch(() => {
+        // Autoplay policy blocked it, wait for interaction
+        const startOnInteract = () => {
+          silentAudioRef.current?.play().catch(e => console.log('Background sleep preventer error:', e));
+          document.removeEventListener('click', startOnInteract);
+          document.removeEventListener('touchstart', startOnInteract);
+        };
+        document.addEventListener('click', startOnInteract);
+        document.addEventListener('touchstart', startOnInteract);
+      });
+    }
+  }, []);
+
   return (
-    <div className="flex h-screen overflow-hidden bg-[#09090b] text-white selection:bg-violet-500/30 font-sans">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#09090b] text-white selection:bg-violet-500/30 font-sans">
+      {/* Background media preventer */}
+      <audio ref={silentAudioRef} src={SILENT_AUDIO_URI} loop playsInline className="hidden" />
       {/* Background gradients for atmosphere */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-violet-900/10 rounded-full blur-[150px]" />
