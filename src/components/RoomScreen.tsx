@@ -69,7 +69,7 @@ export function RoomScreen({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0a]">
+    <div className="flex flex-col h-[100dvh] bg-[#0a0a0a]">
       {/* Header */}
       <header className="h-14 border-b border-zinc-800/60 bg-zinc-950/60 backdrop-blur-xl flex items-center justify-between px-5 z-10">
         <div className="flex items-center gap-3">

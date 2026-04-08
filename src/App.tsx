@@ -45,7 +45,7 @@ export default function App() {
 
   return (
     <TooltipProvider>
-      <div className="dark min-h-screen bg-[#0a0a0a] text-zinc-100 font-sans selection:bg-zinc-800 selection:text-zinc-100">
+      <div className="dark min-h-[100dvh] bg-[#0a0a0a] text-zinc-100 font-sans selection:bg-zinc-800 selection:text-zinc-100">
         {!inRoom ? (
           <LobbyScreen onJoinRoom={handleJoinRoom} />
         ) : (

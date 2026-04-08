@@ -25,8 +25,13 @@ function generateRoomId(): string {
 }
 
 export function LobbyScreen({ onJoinRoom }: LobbyScreenProps) {
-  const [userName, setUserName] = useState("");
-  const [roomId, setRoomId] = useState("");
+  const [userName, setUserName] = useState(() => {
+    return localStorage.getItem("audio-hub-username") || "";
+  });
+  const [roomId, setRoomId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("room") || "";
+  });
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -36,6 +41,7 @@ export function LobbyScreen({ onJoinRoom }: LobbyScreenProps) {
       return;
     }
     setError(null);
+    localStorage.setItem("audio-hub-username", userName.trim());
     onJoinRoom(roomId.trim(), userName.trim());
   };
 
@@ -56,7 +62,7 @@ export function LobbyScreen({ onJoinRoom }: LobbyScreenProps) {
   };
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen p-4 overflow-hidden">
+    <div className="relative flex items-center justify-center min-h-[100dvh] p-4 overflow-hidden">
       {/* Animated background orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
