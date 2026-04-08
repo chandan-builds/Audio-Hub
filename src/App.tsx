@@ -65,7 +65,7 @@ export default function App() {
           href="https://github.com/chandan-builds" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-full border border-white/5 bg-[#0a0a0a]/60 px-4 py-2 text-xs font-medium backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:bg-white/10 hover:border-white/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] cursor-pointer group"
+          className="fixed bottom-6 right-6 z-50 hidden md:flex items-center gap-2.5 rounded-full border border-white/5 bg-[#0a0a0a]/60 px-4 py-2 text-xs font-medium backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:bg-white/10 hover:border-white/20 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] cursor-pointer group"
         >
           <span className="text-zinc-400 transition-colors group-hover:text-zinc-200">Built by</span>
           <span className="font-bold tracking-wide bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent group-hover:from-indigo-300 group-hover:via-purple-300 group-hover:to-pink-300 transition-colors">

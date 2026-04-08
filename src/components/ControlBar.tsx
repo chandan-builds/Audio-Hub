@@ -45,7 +45,7 @@ export function ControlBar({
       className="h-20 border-t border-zinc-800/60 bg-zinc-950/80 backdrop-blur-2xl flex items-center justify-center gap-3 px-6 relative"
     >
       {/* Call duration */}
-      <div className="absolute left-6 flex items-center gap-2">
+      <div className="absolute left-6 hidden sm:flex items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
         <span className="text-xs font-mono text-zinc-500">{formatTime(time)}</span>
       </div>
@@ -97,7 +97,7 @@ export function ControlBar({
             onClick={onOpenDeviceSelector}
             className="h-12 w-12 rounded-full border-zinc-800/60 bg-zinc-900/60 hover:bg-zinc-800 transition-all duration-200"
           >
-            <Settings2 className="h-5 w-5 text-zinc-400" />
+             <Settings2 className="h-5 w-5 text-zinc-400" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-zinc-900 border-zinc-800 text-zinc-300">
@@ -124,7 +124,7 @@ export function ControlBar({
       </Tooltip>
 
       {/* Volume indicator */}
-      <div className="absolute right-6 flex items-center gap-2">
+      <div className="absolute right-6 hidden sm:flex items-center gap-2">
         <Volume2 className="h-3.5 w-3.5 text-zinc-600" />
         <div className="w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
           <div className="h-full w-4/5 bg-zinc-600 rounded-full" />
