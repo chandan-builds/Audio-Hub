@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { PiPKeepAlive } from "./PiPKeepAlive";
 
 interface ControlBarProps {
   isMuted: boolean;
@@ -104,6 +105,8 @@ export function ControlBar({
           Audio Settings
         </TooltipContent>
       </Tooltip>
+
+      <PiPKeepAlive />
 
       <Separator orientation="vertical" className="h-8 bg-zinc-800/60 mx-1" />
 
