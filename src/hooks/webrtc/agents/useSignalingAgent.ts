@@ -252,6 +252,7 @@ export function useSignalingAgent({
     if (!message.trim()) return;
     const memory = memoryRef.current;
     const msg: ChatMessage = {
+      id: crypto.randomUUID(),
       userId,
       userName,
       message: message.trim(),

@@ -244,11 +244,12 @@ io.on("connection", (socket: Socket) => {
   // Chat message relay
   socket.on(
     "chat-message",
-    ({ message, userName }: { message: string; userName: string }) => {
+    ({ id, message, userName }: { id: string; message: string; userName: string }) => {
       const mapping = socketToUser.get(socket.id);
       if (!mapping) return;
 
       socket.to(mapping.roomId).emit("chat-message", {
+        id,
         userId: mapping.userId,
         userName,
         message,

@@ -11,6 +11,7 @@ export interface PeerData {
 }
 
 export interface ChatMessage {
+  id: string;
   userId: string;
   userName: string;
   message: string;

@@ -1,6 +1,6 @@
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
-  Radio, Copy, Check, Users, MessageSquare
+  Radio, Copy, Check, Users, MessageSquare, Maximize2, Minimize2, ZoomIn, ZoomOut, MousePointer2 
 } from "lucide-react";
 import React, { useState, useRef, useEffect, memo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,17 @@ import { useWebRTCMemory, useWebRTCCoordinator } from "@/src/hooks/useWebRTC";
 import { cn } from "@/lib/utils";
 
 const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { stream: MediaStream, userName: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  
+  // Zoom & Pan state
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const controlsTimeoutRef = useRef<NodeJS.Timeout>();
   
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -28,20 +38,160 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
     }
   }, [stream]);
 
+  // Handle Fullscreen changes natively
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = !!document.fullscreenElement;
+      setIsFullscreen(isFull);
+      if (!isFull) {
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn("Fullscreen toggle failed", err);
+    }
+  };
+
+  const showControls = () => {
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (!isDragging.current && !document.querySelector('.zoom-controls:hover')) {
+        setControlsVisible(false);
+      }
+    }, 2500);
+  };
+
+  const resetZoom = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  // Event handlers for drag & zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!isFullscreen) return; // Only zoom inside fullscreen
+    e.preventDefault();
+    setScale((prev) => {
+      const newScale = prev - e.deltaY * 0.005;
+      return Math.min(Math.max(1, newScale), 5); // Clamped between 1x and 5x
+    });
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (scale <= 1 || !isFullscreen) return;
+    isDragging.current = true;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    if (containerRef.current) containerRef.current.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    showControls();
+    if (!isDragging.current) return;
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    setPosition((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    isDragging.current = false;
+    if (containerRef.current) containerRef.current.releasePointerCapture(e.pointerId);
+  };
+
   return (
-    <div className="mb-6 w-full aspect-video md:h-[60vh] bg-zinc-100 dark:bg-black rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800/50 shadow-2xl shadow-black/5 dark:shadow-black/50 relative group">
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        playsInline
-        className="w-full h-full object-contain"
-      />
-      <div className="absolute top-4 left-4 shadow-lg">
-        <Badge className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-200">
-          {userName}'s screen
-        </Badge>
+    <div 
+      ref={containerRef}
+      onMouseMove={showControls}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onWheel={handleWheel}
+      onDoubleClick={toggleFullscreen}
+      className={cn(
+        "bg-zinc-100 dark:bg-black overflow-hidden relative group select-none touch-none",
+        isFullscreen ? "w-screen h-screen m-0 rounded-none border-0" : "mb-6 w-full aspect-video md:h-[60vh] rounded-2xl border border-zinc-200 dark:border-zinc-800/50 shadow-2xl shadow-black/5 dark:shadow-black/50"
+      )}
+    >
+      <div 
+        className="w-full h-full flex items-center justify-center transform-gpu"
+        style={{ 
+          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+          transition: isDragging.current ? "none" : "transform 0.15s ease-out",
+          cursor: scale > 1 ? (isDragging.current ? "grabbing" : "grab") : "default"
+        }}
+      >
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className="w-full h-full object-contain pointer-events-none"
+        />
       </div>
+      
+      {/* HUD overlays */}
+      <AnimatePresence>
+        {(controlsVisible || !isFullscreen) && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 pointer-events-none"
+          >
+            <div className="absolute top-4 left-4">
+              <Badge className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-200 shadow-lg pointer-events-auto">
+                {userName}'s screen
+              </Badge>
+            </div>
+            
+            <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto zoom-controls">
+              {isFullscreen && (
+                <>
+                  <div className="flex items-center gap-1 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 p-1.5 rounded-lg shadow-lg">
+                    <button onClick={resetZoom} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Reset Zoom">
+                      <ZoomOut className="h-4 w-4" />
+                    </button>
+                    <span className="text-[10px] font-mono font-bold w-10 text-center text-zinc-800 dark:text-zinc-200">
+                      {Math.round(scale * 100)}%
+                    </span>
+                    <button onClick={() => setScale(s => Math.min(5, s + 0.5))} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Zoom In">
+                      <ZoomIn className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {scale > 1 && (
+                    <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 h-8 px-3 rounded-lg shadow-lg flex items-center gap-2">
+                       <MousePointer2 className="h-3.5 w-3.5 text-violet-500" />
+                       <span className="text-[11px] font-medium text-zinc-800 dark:text-zinc-200">Drag to pan</span>
+                    </div>
+                  )}
+                </>
+              )}
+              
+              <button 
+                onClick={toggleFullscreen}
+                className="bg-white/80 hover:bg-white dark:bg-zinc-900/80 dark:hover:bg-zinc-900 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 p-2 rounded-lg shadow-lg text-zinc-700 dark:text-zinc-200 transition-colors"
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen (Double-click)"}
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });
