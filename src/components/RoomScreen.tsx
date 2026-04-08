@@ -387,13 +387,43 @@ export function RoomScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [peerArray.length]);
 
-  // Auto-focus on active speaker if no manual focus is set and we have video users
-  useEffect(() => {
-    if (focusedPeerId) return; // Don't override manual focus
-    // No auto-focus — user must click the focus button
-  }, [activeSpeakerId, focusedPeerId]);
+  // Smart Layout: Auto-focus logic
+  const [lastActiveSpeakerId, setLastActiveSpeakerId] = useState<string | null>(null);
 
-  // Clear focus if focused peer disconnects
+  // Keep track of the last speaker to avoid aggressively snapping back to grid
+  useEffect(() => {
+    if (activeSpeakerId && activeSpeakerId !== "local") {
+      setLastActiveSpeakerId(activeSpeakerId);
+    }
+  }, [activeSpeakerId]);
+
+  const effectiveFocusId = useMemo(() => {
+    if (focusedPeerId) return focusedPeerId; // Manual focus always wins
+
+    const remoteVideoPeers = peerArray.filter(([_, p]) => p.isVideoEnabled);
+    const videoUsersCount = remoteVideoPeers.length + (isVideoEnabled ? 1 : 0);
+    const speakingUsersCount = peerArray.filter(([_, p]) => p.isSpeaking).length;
+
+    // 1. Focus active speaker
+    if (activeSpeakerId && activeSpeakerId !== "local") {
+      return activeSpeakerId;
+    }
+
+    // 2. Focus if only 1-2 video users
+    if (videoUsersCount > 0 && videoUsersCount <= 2) {
+      if (remoteVideoPeers.length > 0) return remoteVideoPeers[0][0];
+      if (isVideoEnabled) return "local";
+    }
+
+    // 3. Fallback to last active speaker if not a crowded speaking room
+    if (speakingUsersCount === 0 && lastActiveSpeakerId && peers.has(lastActiveSpeakerId) && videoUsersCount <= 4) {
+      return lastActiveSpeakerId;
+    }
+
+    return null;
+  }, [focusedPeerId, peerArray, activeSpeakerId, lastActiveSpeakerId, isVideoEnabled, peers]);
+
+  // Clear manual focus if focused peer disconnects
   useEffect(() => {
     if (focusedPeerId && focusedPeerId !== "local" && !peers.has(focusedPeerId)) {
       setFocusedPeerId(null);
@@ -408,7 +438,7 @@ export function RoomScreen({
   };
 
   // Determine focus view data
-  const focusPeerData = focusedPeerId === "local"
+  const focusPeerData = effectiveFocusId === "local"
     ? {
         userId: "local",
         userName,
@@ -423,7 +453,7 @@ export function RoomScreen({
         audioLevel: 0,
         isSpeaking: false,
       }
-    : focusedPeerId ? peers.get(focusedPeerId) : null;
+    : effectiveFocusId ? peers.get(effectiveFocusId) : null;
 
   const isAnyVideoOn = isVideoEnabled || peerArray.some(([_, p]) => p.isVideoEnabled);
 
@@ -541,13 +571,13 @@ export function RoomScreen({
               <ScreenShareFocus stream={localScreenStream} userName="Your" />
             )}
 
-            {/* ─── Active Speaker Focus Mode ─── */}
-            <AnimatePresence>
-              {focusPeerData && focusedPeerId && !screenSharer && (
+            {/* ─── Active Speaker / Video Focus Mode ─── */}
+            <AnimatePresence mode="popLayout">
+              {focusPeerData && effectiveFocusId && !screenSharer && (
                 <SpeakerFocusView
                   focusPeer={focusPeerData}
-                  focusPeerId={focusedPeerId}
-                  isLocal={focusedPeerId === "local"}
+                  focusPeerId={effectiveFocusId}
+                  isLocal={effectiveFocusId === "local"}
                   localUserName={userName}
                   localStream={localStream}
                   localVideoStream={localVideoStream}
@@ -561,9 +591,12 @@ export function RoomScreen({
             </AnimatePresence>
 
             {/* Participant Grid */}
-            <div className={cn(
+            <motion.div 
+              layout
+              transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+              className={cn(
               "grid gap-4",
-              (screenSharer || focusedPeerId)
+              (screenSharer || effectiveFocusId)
                 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             )}>
@@ -617,7 +650,7 @@ export function RoomScreen({
                   <p className="text-sm font-mono mt-1 text-zinc-600 dark:text-zinc-400">Room: {roomId}</p>
                 </div>
               )}
-            </div>
+            </motion.div>
           </div>
         </div>
 

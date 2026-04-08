@@ -158,17 +158,26 @@ export const PeerCard = memo(function PeerCard({
     }
   }, [volume, isLocal]);
 
+  // Calculate dynamic scale based on volume if speaking
+  const dynamicScale = isActiveSpeaker ? 1.05 + (audioLevel * 0.15) : 1;
+
   return (
     <motion.div
       ref={visibilityRef}
       initial={{ opacity: 0, scale: 0.9, y: 10 }}
       animate={{ 
         opacity: 1, 
-        scale: isActiveSpeaker ? 1.03 : 1, 
-        y: 0 
+        scale: dynamicScale, 
+        y: 0,
+        zIndex: isActiveSpeaker ? 10 : 1
       }}
       exit={{ opacity: 0, scale: 0.9, y: -10 }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 220, 
+        damping: 22, 
+        mass: 0.8 // smooth ~400ms duration
+      }}
       className="group relative"
       layout
     >
