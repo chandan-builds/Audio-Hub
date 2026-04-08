@@ -202,23 +202,15 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
         try {
           memory.makingOfferRef.current.set(targetUserId, true);
           
-          await pc.setLocalDescription();
-          const localDesc = pc.localDescription;
-          if (!localDesc) return;
-          
-          const modifiedSdp = setOpusLowLatency(localDesc.sdp || "");
-          const finalDescription = new RTCSessionDescription({ type: localDesc.type, sdp: modifiedSdp });
-          
-          // Re-apply modified SDP
-          if (localDesc.sdp !== modifiedSdp) {
-             await pc.setLocalDescription(finalDescription);
-          }
+          const offer = await pc.createOffer();
+          offer.sdp = setOpusLowLatency(offer.sdp || "");
+          await pc.setLocalDescription(offer);
 
           memory.socketRef.current?.emit("signal", {
             to: targetUserId,
             from: userId,
             fromName: userName,
-            signal: finalDescription,
+            signal: pc.localDescription,
             type: "offer",
           });
         } catch (err) {

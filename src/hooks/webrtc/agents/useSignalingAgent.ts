@@ -140,22 +140,15 @@ export function useSignalingAgent({
             await pc.setRemoteDescription(new RTCSessionDescription(signal));
             await flushIceRef.current(from, pc);
 
-            await pc.setLocalDescription();
-            const localDesc = pc.localDescription;
-            if (!localDesc) return;
-            
-            const modifiedSdp = setOpusLowLatency(localDesc.sdp || "");
-            const finalDesc = new RTCSessionDescription({ type: localDesc.type, sdp: modifiedSdp });
-            
-            if (localDesc.sdp !== modifiedSdp) {
-               await pc.setLocalDescription(finalDesc);
-            }
+            const answer = await pc.createAnswer();
+            answer.sdp = setOpusLowLatency(answer.sdp || "");
+            await pc.setLocalDescription(answer);
             
             socket.emit("signal", {
               to: from,
               from: userId,
               fromName: userName,
-              signal: finalDesc,
+              signal: pc.localDescription,
               type: "answer",
             });
             mem.negotiationDoneRef.current.set(from, true);

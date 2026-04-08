@@ -175,6 +175,7 @@ export function RoomScreen({
                 <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl shadow-black/50">
                   <video
                     autoPlay
+                    muted
                     playsInline
                     ref={(el) => {
                       if (el && screenSharer[1].screenStream) {
