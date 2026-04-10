@@ -2,7 +2,6 @@ import express from "express";
 import { createServer } from "http";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
-import cron from "node-cron";
 
 // --- Types ---
 interface RoomUser {
@@ -393,18 +392,44 @@ httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Audio Hub server running on port ${PORT}`);
   console.log(`📡 CORS origins: ${ALLOWED_ORIGINS.join(", ")}`);
 
-  // --- Keep-Alive Cron (Render free tier spins down after 15 min) ---
+  // --- Randomized Keep-Alive (Render free tier spins down after 15 min) ---
+  // Uses random intervals (1–13 min) and rotates endpoints to look like
+  // organic traffic instead of a predictable cron ping.
   const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
-  cron.schedule("*/5 * * * *", async () => {
-    try {
-      const res = await fetch(`${SELF_URL}/health`);
-      const data = await res.json();
-      console.log(`[Cron] Keep-alive ping → ${res.status}`, data);
-    } catch (err) {
-      console.warn("[Cron] Keep-alive ping failed:", (err as Error).message);
-    }
-  });
+  const KEEP_ALIVE_ENDPOINTS = ["/health", "/api/rooms", "/health", "/api/rooms"];
+  const MIN_INTERVAL_MS = 1 * 60 * 1000;   // 1 minute
+  const MAX_INTERVAL_MS = 13 * 60 * 1000;  // 13 minutes
 
-  console.log(`⏰ Keep-alive cron scheduled (every 5 min → ${SELF_URL}/health)`);
+  function getRandomInterval(): number {
+    return Math.floor(Math.random() * (MAX_INTERVAL_MS - MIN_INTERVAL_MS + 1)) + MIN_INTERVAL_MS;
+  }
+
+  function getRandomEndpoint(): string {
+    return KEEP_ALIVE_ENDPOINTS[Math.floor(Math.random() * KEEP_ALIVE_ENDPOINTS.length)];
+  }
+
+  function scheduleNextPing(): void {
+    const delay = getRandomInterval();
+    const delayMin = (delay / 60000).toFixed(1);
+
+    setTimeout(async () => {
+      const endpoint = getRandomEndpoint();
+      try {
+        const res = await fetch(`${SELF_URL}${endpoint}`);
+        const data = await res.json();
+        console.log(`[KeepAlive] ${endpoint} → ${res.status} (next in ~${delayMin}m)`, data);
+      } catch (err) {
+        console.warn(`[KeepAlive] Ping to ${endpoint} failed:`, (err as Error).message);
+      }
+      // Schedule the next one recursively
+      scheduleNextPing();
+    }, delay);
+
+    console.log(`⏰ Next keep-alive ping in ~${delayMin} min`);
+  }
+
+  // Kick off the first ping
+  scheduleNextPing();
+  console.log(`🔁 Randomized keep-alive active → ${SELF_URL} (1–13 min intervals)`);
 });
