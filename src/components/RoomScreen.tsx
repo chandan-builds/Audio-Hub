@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
+import type { JoinPreferences } from "./prejoin/PreJoinScreen";
 import {
   Radio, Copy, Check, Users, MessageSquare, Maximize2, Minimize2, ZoomIn, ZoomOut, MousePointer2,
   Signal, SignalHigh, SignalMedium, SignalLow, X
@@ -15,8 +16,17 @@ import { ControlBar } from "./ControlBar";
 import { ActivitySidebar } from "./ActivitySidebar";
 import { ChatPanel } from "./ChatPanel";
 import { DeviceSelector } from "./DeviceSelector";
+import { SettingsModal } from "./room/SettingsModal";
 import { useWebRTCMemory, useWebRTCCoordinator } from "@/src/hooks/useWebRTC";
+import { useRecordingAgent } from "@/src/hooks/useRecordingAgent";
 import { cn } from "@/lib/utils";
+// Phase 4 — Stability & Resilience
+import { useConnectionMonitor } from "@/src/hooks/useConnectionMonitor";
+import { useKeyboardShortcuts, usePushToTalk, useShortcutHelpModal } from "@/src/hooks/useKeyboardShortcuts";
+import { ReconnectionOverlay } from "./room/ReconnectionOverlay";
+import { PermissionOverlay } from "./room/PermissionOverlay";
+import type { PermissionError } from "./room/PermissionOverlay";
+import { ShortcutHelpModal } from "./room/ShortcutHelpModal";
 
 /* ───────────────────────────────────────────────────
    Screen Share Focus — full-screen with zoom/pan
@@ -338,6 +348,8 @@ interface RoomScreenProps {
   userId: string;
   serverUrl: string;
   onLeave: () => void;
+  /** Preferences captured on the pre-join screen. */
+  joinPrefs?: JoinPreferences | null;
 }
 
 export function RoomScreen({
@@ -346,12 +358,15 @@ export function RoomScreen({
   userId,
   serverUrl,
   onLeave,
+  joinPrefs,
 }: RoomScreenProps) {
   const [chatOpen, setChatOpen] = useState(false);
   const [deviceSelectorOpen, setDeviceSelectorOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [globalVolume, setGlobalVolume] = useState(1);
   const [focusedPeerId, setFocusedPeerId] = useState<string | null>(null);
+  const [permissionError, setPermissionError] = useState<PermissionError>(null);
 
   const {
     peers,
@@ -371,8 +386,46 @@ export function RoomScreen({
   } = useWebRTCMemory();
 
   const agents = useWebRTCCoordinator({
-    roomId, userId, userName, serverUrl
+    roomId, userId, userName, serverUrl,
+    startMuted:    joinPrefs?.startMuted    ?? false,
+    startVideoOff: joinPrefs?.startVideoOff ?? false,
+    preferredAudioInputId:  joinPrefs?.preferredAudioInputId  ?? undefined,
+    preferredVideoInputId:  joinPrefs?.preferredVideoInputId  ?? undefined,
+    preferredAudioOutputId: joinPrefs?.preferredAudioOutputId ?? undefined,
+    onPermissionError: (errType) => setPermissionError(errType as PermissionError),
   });
+
+  // ── Phase 4: Connection health monitoring ──────────────────────────────────
+  const { health } = useConnectionMonitor({
+    peers,
+    isSignalingConnected: isConnected,
+    onFailed: () => console.warn("[ConnectionMonitor] Connection failed — showing overlay"),
+    onRecovered: () => console.info("[ConnectionMonitor] Connection recovered"),
+  });
+
+  // ── Phase 4: Keyboard shortcut definitions ─────────────────────────────────
+  const shortcutDefs = useMemo(() => [
+    { key: "m", label: "Toggle Mute",        action: agents.toggleMute },
+    { key: "v", label: "Toggle Camera",       action: agents.toggleVideo },
+    { key: "s", label: "Toggle Screen Share", action: agents.toggleScreenShare },
+    { key: "c", label: "Toggle Chat",          action: () => setChatOpen(prev => !prev) },
+    { key: "p", label: "Push-to-Talk (hold Space)", action: () => {} },
+  ], [agents]);
+
+  useKeyboardShortcuts(shortcutDefs);
+
+  // Push-to-talk: hold Space to unmute temporarily
+  usePushToTalk(
+    () => { if (isMuted) agents.toggleMute(); },      // on press → unmute
+    () => { if (!isMuted) agents.toggleMute(); },     // on release → re-mute
+    isMuted   // only active when currently muted
+  );
+
+  // Shortcut cheat-sheet modal (press ?)
+  const { isOpen: shortcutModalOpen, close: closeShortcutModal } = useShortcutHelpModal();
+
+  // ── Phase 5: Local recording agent ────────────────────────────────────
+  const recording = useRecordingAgent();
 
   const peerArray = useMemo(() => Array.from(peers.entries()), [peers]);
 
@@ -497,6 +550,13 @@ export function RoomScreen({
             "h-2 w-2 rounded-full",
             isConnected ? "bg-emerald-400" : "bg-amber-400 animate-pulse"
           )} />
+          {/* Recording indicator in header */}
+          {recording.isRecording && (
+            <Badge variant="outline" className="gap-1 text-[10px] text-red-500 dark:text-red-400 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+              REC
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -672,9 +732,20 @@ export function RoomScreen({
         onToggleVideo={agents.toggleVideo}
         onSwitchCamera={() => agents.switchCamera()}
         onLeave={() => { agents.disconnect(); onLeave(); }}
-        onOpenDeviceSelector={() => setDeviceSelectorOpen(true)}
+        onOpenDeviceSelector={() => setSettingsOpen(true)}
         volume={globalVolume}
         onVolumeChange={setGlobalVolume}
+        recordingState={{ isRecording: recording.isRecording, elapsed: recording.elapsed, blob: recording.blob }}
+        onStartRecording={() => {
+          const streams: MediaStream[] = [];
+          if (localStream) streams.push(localStream);
+          if (localVideoStream) streams.push(localVideoStream);
+          if (localScreenStream) streams.push(localScreenStream);
+          recording.startRecording(streams);
+        }}
+        onStopRecording={recording.stopRecording}
+        onDownloadRecording={() => recording.downloadRecording()}
+        onClearRecording={recording.clearRecording}
       />
 
       <ChatPanel
@@ -684,10 +755,55 @@ export function RoomScreen({
         onToggle={() => setChatOpen(!chatOpen)}
       />
 
+      {/* Legacy DeviceSelector — kept for backward compat */}
       <DeviceSelector
         isOpen={deviceSelectorOpen}
         onClose={() => setDeviceSelectorOpen(false)}
         onSelectDevice={agents.switchAudioDevice}
+      />
+
+      {/* New comprehensive Settings Modal (Phase 5) */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSelectAudioInput={agents.switchAudioDevice}
+        shortcuts={shortcutDefs}
+      />
+
+      {/* ── Phase 4 Overlays ──────────────────────────────────────────────── */}
+      <ReconnectionOverlay
+        health={health}
+        onRetry={() => {
+          // The socket.io client's built-in reconnection handles this;
+          // we just force a re-join emit on reconnect via the existing
+          // socket.on("connect") handler in useSignalingAgent.
+          // If signaling is dead, disconnect and trigger a page refresh
+          // so the effect re-runs and re-creates the socket.
+          const socket = (window as any).__audioHubSocket;
+          if (socket) {
+            socket.connect();
+          } else {
+            window.location.reload();
+          }
+        }}
+        onLeave={() => { agents.disconnect(); onLeave(); }}
+      />
+
+      <PermissionOverlay
+        error={permissionError}
+        onRetry={() => {
+          setPermissionError(null);
+          // Reload to re-trigger getUserMedia flow
+          window.location.reload();
+        }}
+        onContinueWithout={() => setPermissionError(null)}
+        onLeave={() => { agents.disconnect(); onLeave(); }}
+      />
+
+      <ShortcutHelpModal
+        isOpen={shortcutModalOpen}
+        onClose={closeShortcutModal}
+        shortcuts={shortcutDefs}
       />
     </div>
   );

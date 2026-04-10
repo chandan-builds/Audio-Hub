@@ -1,0 +1,358 @@
+/* =============================================================
+   Phase 4 — Stability & Resilience Overlay Styles
+   Reconnection, Permission, & Keyboard Shortcut overlays
+   ============================================================= */
+
+/* ── Shared overlay layout ─────────────────────────────────── */
+.reconnection-overlay,
+.permission-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.reconnection-backdrop,
+.permission-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Shared card ───────────────────────────────────────────── */
+.reconnection-card,
+.permission-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  background: color-mix(in oklch, var(--color-card) 80%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);
+  border-radius: var(--radius-3xl);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+/* ── Icon wrap ─────────────────────────────────────────────── */
+.reconnection-icon-wrap,
+.permission-icon-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reconnection-icon-wrap.reconnecting {
+  background: color-mix(in oklch, oklch(0.75 0.18 50) 18%, transparent);
+  color: oklch(0.75 0.18 50); /* amber */
+}
+
+.reconnection-icon-wrap.failed {
+  background: color-mix(in oklch, var(--color-destructive) 18%, transparent);
+  color: var(--color-destructive);
+}
+
+.permission-icon-wrap {
+  background: color-mix(in oklch, oklch(0.6 0.22 260) 18%, transparent);
+  color: oklch(0.7 0.22 260); /* indigo */
+}
+
+/* ── Titles & text ─────────────────────────────────────────── */
+.reconnection-title,
+.permission-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-foreground);
+  text-align: center;
+  margin: 0;
+}
+
+.reconnection-message,
+.permission-message {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+  text-align: center;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.reconnection-duration,
+.reconnection-subtext {
+  font-size: 0.78rem;
+  color: color-mix(in oklch, var(--color-muted-foreground) 70%, transparent);
+  letter-spacing: 0.01em;
+}
+
+/* ── Countdown pill ─────────────────────────────────────────── */
+.reconnection-countdown {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 99px;
+  background: color-mix(in oklch, oklch(0.75 0.18 50) 12%, transparent);
+  color: oklch(0.75 0.18 50);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.reconnection-spinner {
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Action buttons ─────────────────────────────────────────── */
+.reconnection-actions,
+.permission-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.reconnection-btn,
+.permission-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-xl);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+}
+
+.reconnection-btn.primary,
+.permission-btn.primary {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.reconnection-btn.primary:hover:not(:disabled),
+.permission-btn.primary:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.reconnection-btn.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reconnection-btn.secondary,
+.permission-btn.secondary {
+  background: color-mix(in oklch, var(--color-muted) 60%, transparent);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
+}
+
+.reconnection-btn.secondary:hover,
+.permission-btn.secondary:hover {
+  background: var(--color-muted);
+}
+
+.permission-btn.ghost {
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font-weight: 400;
+}
+
+.permission-btn.ghost:hover {
+  color: var(--color-foreground);
+}
+
+/* ── Permission steps ───────────────────────────────────────── */
+.permission-steps {
+  width: 100%;
+  background: color-mix(in oklch, var(--color-muted) 40%, transparent);
+  border-radius: var(--radius-xl);
+  padding: 0.85rem 1rem;
+}
+
+.permission-steps-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+
+.permission-steps-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.permission-steps-list li {
+  font-size: 0.83rem;
+  color: var(--color-foreground);
+  line-height: 1.5;
+}
+
+.permission-help-link {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: oklch(0.65 0.22 250);
+  text-decoration: none;
+}
+
+.permission-help-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Reconnection tips ──────────────────────────────────────── */
+.reconnection-tips {
+  width: 100%;
+  padding-left: 1.25rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.reconnection-tips li {
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+}
+
+/* =============================================================
+   Shortcut Help Modal
+   ============================================================= */
+
+.shortcut-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 8500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.shortcut-modal-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 380px;
+  background: color-mix(in oklch, var(--color-card) 90%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-3xl);
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.shortcut-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.shortcut-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-foreground);
+}
+
+.shortcut-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.shortcut-modal-close {
+  background: transparent;
+  border: none;
+  padding: 0.35rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.shortcut-modal-close:hover {
+  color: var(--color-foreground);
+  background: var(--color-muted);
+}
+
+.shortcut-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.5rem;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease;
+}
+
+.shortcut-row:hover {
+  background: var(--color-muted);
+}
+
+.shortcut-description {
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+}
+
+.shortcut-kbd {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--color-muted) 80%, transparent);
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
+  min-width: 2.2rem;
+  text-align: center;
+}
+
+.shortcut-modal-footer {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.78rem;
+  color: var(--color-muted-foreground);
+  text-align: center;
+}

@@ -7,13 +7,29 @@ export interface UseWebRTCCoordinatorOptions {
   userId: string;
   userName: string;
   serverUrl: string;
+  /** Preferred microphone device ID captured on the pre-join screen */
+  preferredAudioInputId?: string;
+  /** Preferred camera device ID captured on the pre-join screen */
+  preferredVideoInputId?: string;
+  /** Preferred speaker device ID captured on the pre-join screen */
+  preferredAudioOutputId?: string;
+  /** Whether the user chose to join muted */
+  startMuted?: boolean;
+  /** Whether the user chose to join with camera off */
+  startVideoOff?: boolean;
+  /** Called when getUserMedia fails — returns a PermissionError type string */
+  onPermissionError?: (err: string) => void;
 }
 
 /**
  * The Coordinator hook that initializes and boots up the three primary WebRTC agents.
  * This must be called from deeply within a component that is wrapped in `WebRTCProvider`.
  */
-export function useWebRTCCoordinator({ roomId, userId, userName, serverUrl }: UseWebRTCCoordinatorOptions) {
+export function useWebRTCCoordinator({
+  roomId, userId, userName, serverUrl,
+  preferredAudioInputId, startMuted,
+  onPermissionError,
+}: UseWebRTCCoordinatorOptions) {
   const peerAgent = usePeerAgent({ userId, userName });
   const mediaAgent = useMediaAgent();
   const signalingAgent = useSignalingAgent({
@@ -21,10 +37,13 @@ export function useWebRTCCoordinator({ roomId, userId, userName, serverUrl }: Us
     userId,
     userName,
     serverUrl,
+    preferredAudioInputId,
+    startMuted,
     createPeerConnection: peerAgent.createPeerConnection,
     cleanupPeer: peerAgent.cleanupPeer,
     flushIceCandidates: peerAgent.flushIceCandidates,
-    setupAudioAnalyser: peerAgent.setupAudioAnalyser
+    setupAudioAnalyser: peerAgent.setupAudioAnalyser,
+    onPermissionError,
   });
 
   return {

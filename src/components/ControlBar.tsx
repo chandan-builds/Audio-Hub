@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Volume2, Volume1, VolumeX,
-  Video, VideoOff, SwitchCamera
+  Video, VideoOff, SwitchCamera, Circle
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PiPKeepAlive } from "./PiPKeepAlive";
+import { RecordingControls } from "./room/RecordingControls";
+import type { RecordingState } from "@/src/hooks/useRecordingAgent";
 
 interface ControlBarProps {
   isMuted: boolean;
@@ -22,6 +24,12 @@ interface ControlBarProps {
   onOpenDeviceSelector: () => void;
   volume: number;
   onVolumeChange: (volume: number) => void;
+  /** Recording state from useRecordingAgent */
+  recordingState?: RecordingState;
+  onStartRecording?: () => void;
+  onStopRecording?: () => void;
+  onDownloadRecording?: () => void;
+  onClearRecording?: () => void;
 }
 
 export function ControlBar({
@@ -36,8 +44,14 @@ export function ControlBar({
   onOpenDeviceSelector,
   volume,
   onVolumeChange,
+  recordingState,
+  onStartRecording,
+  onStopRecording,
+  onDownloadRecording,
+  onClearRecording,
 }: ControlBarProps) {
   const [time, setTime] = useState(0);
+  const [recordingPopoverOpen, setRecordingPopoverOpen] = useState(false);
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
   useEffect(() => {
@@ -63,7 +77,7 @@ export function ControlBar({
         <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">{formatTime(time)}</span>
       </div>
 
-      {/* Controls */}
+      {/* ── Group 1: Media Controls ── */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -72,14 +86,16 @@ export function ControlBar({
             onClick={onToggleMute}
             className={cn(
               "h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200 text-zinc-700 dark:text-zinc-300",
-              isMuted && "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50"
+              isMuted && "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50",
+              !isMuted && "shadow-[0_0_12px_rgba(16,185,129,0.15)] dark:shadow-[0_0_12px_rgba(16,185,129,0.1)]"
             )}
           >
             {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
-          {isMuted ? "Unmute" : "Mute"}
+          <span>{isMuted ? "Unmute" : "Mute"}</span>
+          <kbd className="ml-2 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-mono font-semibold text-zinc-500">M</kbd>
         </TooltipContent>
       </Tooltip>
 
@@ -92,18 +108,19 @@ export function ControlBar({
             onClick={onToggleVideo}
             className={cn(
               "h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200 text-zinc-700 dark:text-zinc-300",
-              isVideoEnabled && "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-700/50 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-950/50"
+              isVideoEnabled && "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-700/50 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-950/50 shadow-[0_0_12px_rgba(139,92,246,0.15)] dark:shadow-[0_0_12px_rgba(139,92,246,0.1)]"
             )}
           >
             {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
-          {isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}
+          <span>{isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}</span>
+          <kbd className="ml-2 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-mono font-semibold text-zinc-500">V</kbd>
         </TooltipContent>
       </Tooltip>
 
-      {/* Camera Switch (only when video is on & on mobile or multiple cameras) */}
+      {/* Camera Switch */}
       {isVideoEnabled && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -122,6 +139,9 @@ export function ControlBar({
         </Tooltip>
       )}
 
+      <Separator orientation="vertical" className="h-8 bg-zinc-200 dark:bg-zinc-800/60 mx-0.5" />
+
+      {/* ── Group 2: Collaboration ── */}
       {!isMobile && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -131,18 +151,22 @@ export function ControlBar({
               onClick={onToggleScreenShare}
               className={cn(
                 "h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200 text-zinc-700 dark:text-zinc-300",
-                isSharingScreen && "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-700/50 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/50"
+                isSharingScreen && "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-700/50 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/50 shadow-[0_0_12px_rgba(6,182,212,0.15)] dark:shadow-[0_0_12px_rgba(6,182,212,0.1)]"
               )}
             >
               {isSharingScreen ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
-            {isSharingScreen ? "Stop Sharing" : "Share Screen"}
+            <span>{isSharingScreen ? "Stop Sharing" : "Share Screen"}</span>
+            <kbd className="ml-2 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-mono font-semibold text-zinc-500">S</kbd>
           </TooltipContent>
         </Tooltip>
       )}
 
+      <Separator orientation="vertical" className="h-8 bg-zinc-200 dark:bg-zinc-800/60 mx-0.5" />
+
+      {/* ── Group 3: Settings + Recording ── */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -155,14 +179,50 @@ export function ControlBar({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
-          Audio Settings
+          Settings
         </TooltipContent>
       </Tooltip>
+
+      {/* Recording button */}
+      {recordingState && (
+        <div className="relative">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setRecordingPopoverOpen((p) => !p)}
+                className={cn(
+                  "h-12 w-12 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200",
+                  recordingState.isRecording && "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.2)] dark:shadow-[0_0_12px_rgba(239,68,68,0.15)]"
+                )}
+              >
+                <Circle className={cn("h-5 w-5", recordingState.isRecording ? "text-red-500 fill-red-500 animate-pulse" : "text-zinc-600 dark:text-zinc-400")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+              {recordingState.isRecording ? "Recording…" : recordingState.blob ? "Download Recording" : "Record"}
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Recording popover */}
+          <RecordingControls
+            state={recordingState}
+            isOpen={recordingPopoverOpen}
+            onClose={() => setRecordingPopoverOpen(false)}
+            onStart={() => { onStartRecording?.(); setRecordingPopoverOpen(false); }}
+            onStop={() => onStopRecording?.()}
+            onDownload={() => onDownloadRecording?.()}
+            onClear={() => onClearRecording?.()}
+          />
+        </div>
+      )}
 
       <PiPKeepAlive isMuted={isMuted} onToggleMute={onToggleMute} />
 
       <Separator orientation="vertical" className="h-8 bg-zinc-200 dark:bg-zinc-800/60 mx-1" />
 
+      {/* ── Group 4: Leave ── */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

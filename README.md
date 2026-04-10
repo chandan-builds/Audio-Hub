@@ -1,126 +1,122 @@
-# 🎧 Audio Hub
+# 🎧 Audio Hub: Protocol-Level Deep Dive
 
-Real-time voice chat and screen sharing application built for modern browsers. Connect with anyone globally, featuring low-latency communication, premium UI aesthetics, and instant room generation.
+**Audio Hub** is a high-performance, real-time voice and video communication platform built with a custom-engineered **Agentic WebRTC Architecture**. Unlike generic video chat apps, Audio Hub is optimized for ultra-low latency, specifically targeting **Bluetooth audio performance** and **interactive collaboration** through advanced media control.
 
-![Audio Hub](https://img.shields.io/badge/WebRTC-Audio%20Chat-blue?style=for-the-badge) ![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black) ![TailwindCSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=for-the-badge&logo=tailwind-css) ![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?style=for-the-badge&logo=vite) ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+![Audio Hub Architecture](https://img.shields.io/badge/Architecture-Agentic%20Coordinator-blueviolet?style=for-the-badge) ![WebRTC Layer](https://img.shields.io/badge/WebRTC-Perfect%20Negotiation-blue?style=for-the-badge) ![Audio Engine](https://img.shields.io/badge/Audio-Bluetooth%20Optimized-green?style=for-the-badge) ![React](https://img.shields.io/badge/React-19.0-61dafb?style=for-the-badge&logo=react&logoColor=black)
 
-## ✨ Features
+---
 
-- 🎙️ **Crystal-Clear Audio** — Bluetooth-optimized, low-latency voice chat using Opus codecs.
-- 🖥️ **Interactive Screen Sharing** — Share screens with dynamic focus mode. Includes true **Fullscreen mode**, interactive **Mouse-wheel Zoom**, and **Drag-to-Pan** navigation controls on the active screenshare feed.
-- 💬 **Text Chat & Pinning** — Integrated real-time text messaging alongside voice and video. Features a persistent **Chat Pinning System** natively storing data in local storage, animating pinned chats to a dedicated sticky header.
-- 🌍 **Instant Global Rooms** — Instantly create and share URL-based rooms to connect with peers.
-- 🎨 **Premium UI/UX** — Glassmorphism aesthetics, responsive layouts, subtle framer-motion animations, custom UI tooltips, and a sleek dark mode.
-- 🔒 **Encrypted Peer-to-Peer** — Secure WebRTC P2P connection handling.
-- 🎯 **Device Management** — Switch microphones and audio devices gracefully.
-- 📊 **Audio Visualizer** — Real-time waveform-style visualizations to see who is speaking.
+## 🧠 Core Philosophy: Agentic Architecture
 
-## 🏗️ Architecture
+The application is built on a "Coordinator-Agent-Memory" design pattern. This decouples the complex state of WebRTC from the UI and ensures high reliability in signaling.
 
-```
+### 1. `useWebRTCCoordinator` (The Brain)
+The central orchestrator that boots up specialized sub-agents. It manages the lifecycle and dependencies between signaling, media tracks, and peer connections.
+
+### 2. The Agent Layer (The Workers)
+*   **`useSignalingAgent`**: Manages the Socket.io connection. It handles room logistics, message relaying, and the heavy lifting of routing WebRTC offers/answers based on `userId` to `socketId` mappings.
+*   **`usePeerAgent`**: The core WebRTC engine. Implements **Perfect Negotiation** (Polite vs. Impolite peers) to handle glare/collision scenarios. It manages a dynamic pool of `RTCPeerConnection` objects.
+*   **`useMediaAgent`**: Controls the hardware. It handles local stream acquisition, track replacement (`replaceTrack`), and specialized media constraints.
+
+### 3. `useWebRTCMemory` (The Truth)
+A centralized state store using a **Stable Ref Pattern**. Agents access the "Memory" via a stable `MutableRefObject`, allowing hooks to access the latest state (like the current Socket connection or local stream) without triggering re-renders or creating stale closure bugs.
+
+---
+
+## 🛠️ Technical Implementation Details
+
+### 🎙️ Bluetooth-Native Audio Engine
+Audio Hub uses specialized **SDP Munging** to force browsers into a low-latency mode suitable for Bluetooth headsets (which usually suffer from 200ms+ latency in standard WebRTC).
+*   **Opus Munging**: Forces `ptime=10` (10ms frames instead of 20ms) and `stereo=0` to reduce bitrate and processing overhead.
+*   **BT Constraints**: Configures `EchoCancellation` as true but disables `NoiseSuppression` and `AutoGainControl` to shave off processing milliseconds.
+*   **CBR Mode**: Uses Constant Bitrate to prevent Bluetooth buffer fluctuations.
+
+### 🖥️ High-Fidelity Screen Sharing
+The screen share implementation features a custom **Interaction Engine**:
+*   **Dynamic Focus**: Automatically promotes screen share streams to the primary layout.
+*   **Zoom & Pan**: Direct control via mouse-wheel zoom and drag-to-pan, allowing users to inspect small text or UI details in high resolution.
+*   **Resolution Switching**: Intelligent fallback between 720p/1080p based on detected network constraints.
+
+### 💬 Persistent Chat Pinning
+A first-of-its-kind chat system where users can "pin" messages.
+*   **Sticky Header**: Pinned messages animate from the chat flow into a dedicated global header.
+*   **Local Persistence**: Pinned state is mirrored in `localStorage`, ensuring the context remains even after a refresh.
+
+---
+
+## 📡 Signaling Protocol & Events
+
+The signaling server (`server/index.ts`) acts as a "Stateless Relay" with minimal persistence.
+
+| Event | Direction | Purpose |
+| :--- | :--- | :--- |
+| `join-room` | Client → Server | Initiates room entry; assigns `host` or `participant` role. |
+| `room-joined-success` | Server → Client | Confirms role and current room permissions. |
+| `signal` | Bi-directional | Transports SDP offers, answers, and ICE candidates. |
+| `user-status-changed` | Client → Server | Notifies peers of Mic/Video/Screen share state. |
+| `host-mute-user` | Client → Server | (Host only) Remotely mutes a participant. |
+| `chat-message` | Client → Server | Relays messages with consistent timestamps. |
+
+---
+
+## 📁 System Architecture Tree
+
+```text
 Audio-Hub/
-├── src/              ← React frontend (Deployed to Vercel)
-│   ├── App.tsx       ← Main application wrapper & entry point
+├── src/
 │   ├── hooks/
-│   │   └── webrtc/         ← Scalable Subagent architecture (Coordinator -> Agents -> Memory)
-│   └── components/
-│       ├── LobbyScreen.tsx
-│       └── room/
-│           ├── RoomScreen.tsx
-│           ├── PeerCard.tsx
-│           ├── ControlBar.tsx
-│           ├── ChatPanel.tsx     ← Chat Pinning & UI Logic
-│           ├── DeviceSelector.tsx
-│           └── ActivitySidebar.tsx
-│
-└── server/           ← Express + Socket.io signaling server (Deployed to Render)
-    └── index.ts      ← Socket signaling events & WebRTC room metadata
+│   │   └── webrtc/
+│   │       ├── agents/        # Logical controllers (Signaling, Media, Peers)
+│   │       ├── memory/        # The Stable Ref state store & Context Provider
+│   │       ├── tools/         # SDP Mungers, Device tools, Math helpers
+│   │       └── types.ts       # Central source of truth for WebRTC interfaces
+│   ├── components/
+│   │   ├── room/              # The active meeting UI
+│   │   │   ├── PeerCard.tsx   # Individual stream renderers with waveform viz
+│   │   │   ├── ControlBar.tsx # Advanced toggle logic
+│   │   │   └── ChatPanel.tsx  # Message logic & Pinning system
+│   │   └── UI/                # Shared glassmorphic design units
+│   └── lib/                   # Utility functions (Shadcn components, tailwind-merge)
+└── server/
+    └── index.ts               # Node/Express Signaling + Socket.io Logic
 ```
 
-## 🚀 Quick Start
+---
 
-### Prerequisites
-- Node.js 20+
-- [Metered.ca](https://www.metered.ca/stun-turn) TURN credentials (free tier) for reliable P2P NAT traversal.
+## 🚀 Environment Configuration
 
-### 1. Install Dependencies
-
-```bash
-# Install Client Dependencies
-npm install
-
-# Install Server Dependencies
-cd server && npm install
+### Frontend (`.env`)
+```env
+VITE_SOCKET_URL=https://your-server.com
+VITE_STUN_SERVER=stun:stun.l.google.com:19302
 ```
 
-### 2. Configure Environment
-
-Create the respective `.env` files in your root and `server` directories.
-
-```bash
-# Client (.env)
-VITE_SOCKET_URL=http://localhost:10000
-
-# Server (server/.env)
+### Backend (`server/.env`)
+```env
 PORT=10000
-TURN_USERNAME=your_metered_username
-TURN_CREDENTIAL=your_metered_credential
-CLIENT_URL=http://localhost:5173
+TURN_USERNAME=your_metered_ca_username
+TURN_CREDENTIAL=your_metered_ca_password
+CLIENT_URL=https://your-frontend.vercel.app
 ```
 
-### 3. Run Locally
+---
 
-You need two terminals to run both the signaling server and the vite client.
+## 🔮 Roadmap for AI-Driven Upgrades
 
-```bash
-# Terminal 1: Start signaling server
-cd server && npm run dev
+Use this section to ask your AI model for specific improvements:
 
-# Terminal 2: Start frontend client
-npm run dev
-```
+1.  **Bug Hunting**:
+    *   "Check `usePeerAgent.ts` for potential `ICE connection failed` retry loops."
+    *   "Analyze the `ONTRAK` logic in `usePeerAgent` for camera vs. screen share differentiation edge cases."
+2.  **Modifications**:
+    *   "Implement a **Recording Agent** that captures the `localStream` and `remoteStream` into a combined MediaRecorder."
+    *   "Add a **Noise Suppression Agent** using the `Web Audio API` to filter background hum."
+3.  **Upgrades**:
+    *   "Upgrade the signaling protocol to support **End-to-End Encryption (E2EE)** via `RTCRtpReceiver.insertableStreams`."
+    *   "Integrate **AI-Powered Subtitles** by piping the audio stream to a Whisper API agent."
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+---
 
-## 🌐 Deployment
-
-This project uses a split architecture, perfectly optimized for cloud hosting natively on Vercel and Render.
-
-### Frontend → Vercel
-1. Connect your GitHub repo to Vercel.
-2. Set build command: `npm run build`
-3. Set output directory: `dist`
-4. Add environment variable: `VITE_SOCKET_URL=https://your-signaling-server.onrender.com`
-
-### Backend → Render
-1. Create a new **Web Service** on Render.
-2. Set root directory: `server`
-3. Set build command: `npm install && npx tsc`
-4. Set start command: `node dist/index.js`
-5. Add environment variables:
-   - `CLIENT_URL=https://your-frontend-app.vercel.app` (Important for CORS)
-   - `TURN_USERNAME=your_metered_username`
-   - `TURN_CREDENTIAL=your_metered_credential`
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 19, TypeScript, Vite |
-| **Styling** | Tailwind CSS v4, shadcn/ui, Lucide Icons |
-| **Real-time** | WebRTC, Socket.io |
-| **Animation** | Framer Motion & CSS UI utilities |
-| **P2P Config** | Metered.ca (STUN/TURN) |
-| **Hosting** | Vercel (Client) + Render (Server) |
-
-## 📡 Bluetooth Audio Optimization
-
-Audio Hub uses specialized WebRTC constraints targeting minimal Bluetooth latency, improving the experience drastically on wireless earphones:
-- Mono audio streaming (reduces BT codec transmission payload)
-- 48kHz core sample rate (native Opus processing frequency)
-- Zero target acoustic latency configurations
-- Opus SDP munging applying `ptime=10` and `useinbandfec=1`
-
-## 👨‍💻 Credits
-
-Designed and engineered by **chandan-builds**.
+## 👨‍💻 Engineering Credits
+Designed and engineered by **chandan-builds**. Built for the next generation of real-time collaboration.
+collaboration.

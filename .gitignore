@@ -8,3 +8,4 @@ coverage/
 !.env.example
 server/dist/
 server/node_modules/
+DESIGN.md

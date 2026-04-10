@@ -10,10 +10,20 @@ export interface UseSignalingAgentOptions {
   userId: string;
   userName: string;
   serverUrl: string;
+  /** Preferred microphone device ID from pre-join screen */
+  preferredAudioInputId?: string;
+  /** Start with microphone muted */
+  startMuted?: boolean;
   createPeerConnection: (targetUserId: string, targetUserName: string, isInitiator: boolean) => RTCPeerConnection;
   cleanupPeer: (peerId: string) => void;
   flushIceCandidates: (peerId: string, pc: RTCPeerConnection) => Promise<void>;
   setupAudioAnalyser: (stream: MediaStream, peerId: string) => void;
+  /**
+   * Called when getUserMedia fails so the UI can show a PermissionOverlay.
+   * "microphone-denied" | "camera-denied" | "both-denied" |
+   * "microphone-not-found" | "overconstrained" | null
+   */
+  onPermissionError?: (err: string) => void;
 }
 
 export function useSignalingAgent({
@@ -21,10 +31,13 @@ export function useSignalingAgent({
   userId,
   userName,
   serverUrl,
+  preferredAudioInputId,
+  startMuted = false,
   createPeerConnection,
   cleanupPeer,
   flushIceCandidates,
-  setupAudioAnalyser
+  setupAudioAnalyser,
+  onPermissionError,
 }: UseSignalingAgentOptions) {
   const memoryRef = useStableMemory();
 
@@ -49,8 +62,12 @@ export function useSignalingAgent({
       memory.iceServersRef.current = await fetchTurnCredentials(serverUrl);
 
       try {
+        const audioConstraints: MediaTrackConstraints = {
+          ...BLUETOOTH_AUDIO_CONSTRAINTS,
+          ...(preferredAudioInputId ? { deviceId: { exact: preferredAudioInputId } } : {}),
+        };
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: BLUETOOTH_AUDIO_CONSTRAINTS,
+          audio: audioConstraints,
         });
 
         if (!mounted) {
@@ -58,11 +75,27 @@ export function useSignalingAgent({
           return;
         }
 
+        // Apply start-muted preference immediately
+        if (startMuted) {
+          stream.getAudioTracks().forEach(t => { t.enabled = false; });
+          memory.setIsMuted(true);
+        }
+
         memory.localStreamRef.current = stream;
         memory.setLocalStream(stream);
         setupAnalyserRef.current(stream, "local");
       } catch (err) {
         console.error("[Media] Microphone access denied:", err);
+        if (err instanceof DOMException) {
+          const n = err.name;
+          if (n === "NotAllowedError" || n === "PermissionDeniedError") {
+            onPermissionError?.("microphone-denied");
+          } else if (n === "NotFoundError" || n === "DevicesNotFoundError") {
+            onPermissionError?.("microphone-not-found");
+          } else if (n === "OverconstrainedError" || n === "ConstraintNotSatisfiedError") {
+            onPermissionError?.("overconstrained");
+          }
+        }
         return;
       }
 
@@ -74,6 +107,8 @@ export function useSignalingAgent({
       });
 
       memory.socketRef.current = socket;
+      // Expose for manual retry from ReconnectionOverlay
+      (window as any).__audioHubSocket = socket;
 
       socket.on("connect", () => {
         if (!mounted) return;

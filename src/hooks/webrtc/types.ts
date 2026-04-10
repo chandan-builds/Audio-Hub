@@ -1,5 +1,24 @@
 export type VideoQuality = 'high' | 'medium' | 'low' | 'off';
 
+export type LayoutMode = 'grid' | 'speaker' | 'pinned' | 'presentation';
+export type PanelTab = 'chat' | 'participants' | null;
+export type ConnectionQuality = 'excellent' | 'good' | 'poor' | 'critical' | 'unknown';
+export type ToastType = 'info' | 'success' | 'warning' | 'error';
+
+export interface Toast {
+  id: string;
+  type: ToastType;
+  message: string;
+  duration: number;
+  timestamp: number;
+}
+
+export interface ConnectionHealth {
+  state: 'connected' | 'reconnecting' | 'disconnected' | 'failed';
+  quality: ConnectionQuality;
+  lastChecked: number;
+}
+
 export interface PeerData {
   userId: string;
   userName: string;
@@ -51,4 +70,12 @@ export interface WebRTCContextState {
   userRole: "host" | "participant" | "unknown";
   isMutedByHost: boolean;
   isVideoDisabledByHost: boolean;
+  // New Phase 1 state
+  layoutMode: LayoutMode;
+  activePanelTab: PanelTab;
+  pinnedPeerId: string | null;
+  toasts: Toast[];
+  connectionHealth: ConnectionHealth;
+  isRecording: boolean;
+  unreadChatCount: number;
 }
