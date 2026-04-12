@@ -50,21 +50,21 @@ export function RightPanel({
           transition={{ type: "spring", stiffness: 380, damping: 34 }}
           className={cn(
             "flex flex-col w-[320px] shrink-0",
-            "border-l border-zinc-200 dark:border-zinc-800/60",
-            "bg-white/90 dark:bg-zinc-950/80 backdrop-blur-xl",
+            "border-l border-ah-border",
+            "bg-ah-surface/95 backdrop-blur-xl",
             "h-full overflow-hidden",
           )}
         >
           {/* Tab bar */}
-          <div className="flex items-center border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
+          <div className="flex items-center border-b border-ah-border shrink-0">
             <button
               id="right-panel-chat-tab"
               onClick={() => onTabChange("chat")}
               className={cn(
                 "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors relative",
                 activeTab === "chat"
-                  ? "border-violet-500 text-violet-600 dark:text-violet-400"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  ? "border-violet-500 text-ah-accent"
+                  : "border-transparent text-ah-text-muted hover:text-ah-text"
               )}
             >
               <MessageSquare className="h-4 w-4" />
@@ -82,8 +82,8 @@ export function RightPanel({
               className={cn(
                 "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
                 activeTab === "participants"
-                  ? "border-violet-500 text-violet-600 dark:text-violet-400"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  ? "border-violet-500 text-ah-accent"
+                  : "border-transparent text-ah-text-muted hover:text-ah-text"
               )}
             >
               <Users className="h-4 w-4" />
@@ -96,8 +96,8 @@ export function RightPanel({
               className={cn(
                 "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
                 activeTab === "activity"
-                  ? "border-violet-500 text-violet-600 dark:text-violet-400"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  ? "border-violet-500 text-ah-accent"
+                  : "border-transparent text-ah-text-muted hover:text-ah-text"
               )}
             >
               <Activity className="h-4 w-4" />
@@ -114,13 +114,13 @@ export function RightPanel({
                     size="icon"
                     onClick={() => onTabChange(null)}
                     id="right-panel-close"
-                    className="mr-2 h-8 w-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                    className="mr-2 h-8 w-8 text-ah-text-muted hover:text-ah-text"
                   />
                 }
               >
                 <X className="h-4 w-4" />
               </TooltipTrigger>
-              <TooltipContent side="left" className="bg-zinc-900 border-zinc-700 text-zinc-200 text-[11px]">
+              <TooltipContent side="left" className="bg-ah-surface border-ah-border text-ah-text text-[11px]">
                 Close panel (Esc)
               </TooltipContent>
             </Tooltip>

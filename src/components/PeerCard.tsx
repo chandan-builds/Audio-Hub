@@ -134,10 +134,10 @@ function StatusPill({
   color?: "red" | "cyan" | "violet" | "default";
 }) {
   const colorMap = {
-    red: "bg-red-950/60 border-red-500/40 text-red-300",
-    cyan: "bg-cyan-950/60 border-cyan-500/40 text-cyan-300",
-    violet: "bg-violet-950/60 border-violet-500/40 text-violet-300",
-    default: "bg-black/50 border-white/10 text-white/70",
+    red:     "bg-ah-danger/15 border-ah-danger/40 text-ah-danger",
+    cyan:    "bg-cyan-500/15 border-cyan-500/40 text-cyan-600 dark:text-cyan-300",
+    violet:  "bg-ah-accent/10 border-ah-accent/40 text-ah-accent",
+    default: "bg-ah-surface/80 border-ah-border text-ah-text-muted",
   };
   return (
     <span className={cn(
@@ -267,7 +267,7 @@ export const PeerCard = memo(function PeerCard({
       >
         {hasPrimary ? (
           /* ── Video Tile ─────────────────────────────────────────────────── */
-          <div ref={videoBoundsRef} className="relative aspect-video w-full overflow-hidden bg-[#050505]">
+          <div ref={videoBoundsRef} className="relative aspect-video w-full overflow-hidden bg-ah-bg">
             <video
               ref={primaryVideoRef}
               autoPlay
@@ -388,7 +388,7 @@ export const PeerCard = memo(function PeerCard({
                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20"
                 title="Focus on this speaker"
               >
-                <div className="bg-black/50 backdrop-blur-md border border-white/20 rounded-xl px-3 py-2 flex items-center gap-2 text-white text-xs font-medium shadow-xl">
+                <div className="bg-ah-glass backdrop-blur-md border border-ah-glass-border rounded-xl px-3 py-2 flex items-center gap-2 text-ah-text text-xs font-medium shadow-xl">
                   <Maximize2 className="h-3.5 w-3.5" />
                   Focus
                 </div>

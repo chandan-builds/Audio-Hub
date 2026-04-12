@@ -19,7 +19,7 @@ function getEventIcon(type: ActivityEvent["type"]) {
     case "screen-share":
       return <Monitor className="h-3 w-3 text-cyan-400" />;
     case "screen-stop":
-      return <MonitorOff className="h-3 w-3 text-zinc-500" />;
+      return <MonitorOff className="h-3 w-3 text-ah-text-muted" />;
     case "chat":
       return <MessageSquare className="h-3 w-3 text-violet-400" />;
   }
@@ -37,7 +37,7 @@ function getEventDot(type: ActivityEvent["type"]) {
     case "screen-share":
       return "bg-cyan-400";
     case "screen-stop":
-      return "bg-zinc-500";
+      return "bg-ah-text-muted";
     case "chat":
       return "bg-violet-400";
   }

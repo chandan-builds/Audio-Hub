@@ -27,7 +27,7 @@ function ConnectionBadge({ isConnected, peerCount }: { isConnected: boolean; pee
         <Icon className="h-3 w-3" />
         {label}
       </TooltipTrigger>
-      <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+      <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
         {isConnected ? "Signaling connected" : "Trying to reconnect…"}
       </TooltipContent>
     </Tooltip>
@@ -44,7 +44,7 @@ function CallTimer() {
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
   return (
-    <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 tabular-nums hidden sm:inline">
+    <span className="text-[11px] font-mono text-ah-text-muted tabular-nums hidden sm:inline">
       {mm}:{ss}
     </span>
   );
@@ -86,20 +86,20 @@ export function TopBar({
   };
 
   return (
-    <header className="h-14 border-b border-zinc-200 dark:border-zinc-800/60 bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl flex items-center justify-between px-4 sm:px-5 z-10 transition-colors duration-300">
+    <header className="h-14 border-b border-ah-border bg-ah-header-bg backdrop-blur-xl flex items-center justify-between px-4 sm:px-5 z-10 transition-colors duration-300">
       {/* ── Left: Logo + Room ID ── */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0">
           <Radio className="h-4 w-4 text-violet-500" />
-          <h1 className="font-bold tracking-tight text-zinc-900 dark:text-zinc-200 text-sm hidden sm:block">Audio Hub</h1>
+          <h1 className="font-bold tracking-tight text-ah-text text-sm hidden sm:block">Audio Hub</h1>
         </div>
 
-        <Separator orientation="vertical" className="h-4 bg-zinc-200 dark:bg-zinc-800/60 hidden sm:block" />
+        <Separator orientation="vertical" className="h-4 bg-ah-border hidden sm:block" />
 
         <div className="flex items-center gap-1.5 min-w-0">
           <Badge
             variant="outline"
-            className="bg-zinc-100 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-mono text-[11px] truncate max-w-[80px] sm:max-w-none"
+            className="bg-ah-surface-raised border-ah-border text-ah-text-muted font-mono text-[11px] truncate max-w-[80px] sm:max-w-none"
           >
             {roomId}
           </Badge>
@@ -109,7 +109,7 @@ export function TopBar({
               id="topbar-copy-link"
               onClick={handleCopy}
               aria-label="Copy invite link"
-              className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors shrink-0"
+              className="p-1 hover:bg-ah-control-hover rounded-md transition-colors shrink-0"
             >
               <AnimatePresence mode="wait" initial={false}>
                 {copied ? (
@@ -118,12 +118,12 @@ export function TopBar({
                   </motion.div>
                 ) : (
                   <motion.div key="copy" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
-                    <Copy className="h-3.5 w-3.5 text-zinc-500" />
+                    <Copy className="h-3.5 w-3.5 text-ah-text-muted" />
                   </motion.div>
                 )}
               </AnimatePresence>
             </TooltipTrigger>
-            <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+            <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
               Copy invite link
             </TooltipContent>
           </Tooltip>
@@ -148,12 +148,12 @@ export function TopBar({
         <div className="flex -space-x-2">
           <Tooltip>
             {/* Base UI TooltipTrigger render prop to change element */}
-            <TooltipTrigger render={<Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950 cursor-default" />}>
+            <TooltipTrigger render={<Avatar className="h-7 w-7 border-2 border-ah-surface cursor-default" />}>
               <AvatarFallback className="bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 text-[10px] font-bold">
                 {userName.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </TooltipTrigger>
-            <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+            <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
               {userName} (You)
             </TooltipContent>
           </Tooltip>
@@ -161,19 +161,19 @@ export function TopBar({
           {peerArray.slice(0, 3).map(([id, peer]) => (
             <React.Fragment key={id}>
               <Tooltip>
-                <TooltipTrigger render={<Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950 cursor-default" />}>
+                <TooltipTrigger render={<Avatar className="h-7 w-7 border-2 border-ah-surface cursor-default" />}>
                   <AvatarFallback
                     className={cn(
                       "text-[10px] font-medium",
                       peer.connectionState === "connected"
-                        ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                        ? "bg-ah-surface-raised text-ah-text-muted"
                         : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
                     )}
                   >
                     {peer.userName.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </TooltipTrigger>
-                <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+                <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
                   {peer.userName}
                 </TooltipContent>
               </Tooltip>
@@ -181,15 +181,15 @@ export function TopBar({
           ))}
 
           {peerArray.length > 3 && (
-            <Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950">
-              <AvatarFallback className="bg-zinc-100 dark:bg-zinc-800 text-[10px] text-zinc-500">
+            <Avatar className="h-7 w-7 border-2 border-ah-surface">
+              <AvatarFallback className="bg-ah-surface-raised text-[10px] text-ah-text-muted">
                 +{peerArray.length - 3}
               </AvatarFallback>
             </Avatar>
           )}
         </div>
 
-        <Badge className="bg-zinc-100 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/40 text-[10px] font-mono gap-1 hidden sm:flex">
+        <Badge className="bg-ah-surface-raised text-ah-text-muted border-ah-border text-[10px] font-mono gap-1 hidden sm:flex">
           <Users className="h-3 w-3" />
           {roomUserCount}
         </Badge>

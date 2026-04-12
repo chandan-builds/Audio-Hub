@@ -68,14 +68,14 @@ export function RecordingControls({
             transition={{ type: "spring", stiffness: 400, damping: 28 }}
             className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 w-64"
           >
-            <div className="bg-white dark:bg-zinc-900/95 backdrop-blur-2xl border border-zinc-200 dark:border-zinc-800/80 rounded-2xl shadow-xl shadow-black/10 dark:shadow-black/40 overflow-hidden ring-1 ring-white/5">
+            <div className="bg-ah-surface/95 backdrop-blur-2xl border border-ah-border rounded-2xl shadow-xl shadow-black/10 overflow-hidden ring-1 ring-white/5">
               {/* Header */}
-              <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/40">
+              <div className="px-4 py-3 border-b border-ah-border">
                 <div className="flex items-center gap-2">
                   {state.isRecording && (
                     <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                   )}
-                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-ah-text">
                     {state.isRecording ? "Recording" : state.blob ? "Recording Ready" : "Local Recording"}
                   </span>
                 </div>
@@ -105,10 +105,10 @@ export function RecordingControls({
                 {/* Completed recording */}
                 {!state.isRecording && state.blob && (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 text-xs">
+                    <div className="flex items-center gap-2 text-ah-text-muted text-xs">
                       <HardDrive className="h-3.5 w-3.5" />
                       <span>{formatSize(state.blob.size)}</span>
-                      <span className="text-zinc-400 dark:text-zinc-600">•</span>
+                      <span className="text-ah-text-faint">•</span>
                       <span>{formatElapsed(state.elapsed)}</span>
                     </div>
                     <div className="flex gap-2">
@@ -124,7 +124,7 @@ export function RecordingControls({
                         size="sm"
                         variant="outline"
                         onClick={onClear}
-                        className="h-8 px-3 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-red-500 dark:hover:text-red-400 text-xs rounded-lg"
+                        className="h-8 px-3 border-ah-border text-ah-text-muted hover:text-red-500 dark:hover:text-red-400 text-xs rounded-lg"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -136,7 +136,7 @@ export function RecordingControls({
                 {!state.isRecording && !state.blob && (
                   <Button
                     onClick={onStart}
-                    className="w-full h-9 bg-zinc-900 hover:bg-black dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 text-xs font-semibold rounded-xl"
+                    className="w-full h-9 bg-ah-text hover:bg-ah-text/90 text-ah-bg text-xs font-semibold rounded-xl"
                   >
                     <Circle className="h-3 w-3 mr-1.5 text-red-400" />
                     Start Recording
@@ -144,7 +144,7 @@ export function RecordingControls({
                 )}
 
                 {/* Info text */}
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">
+                <p className="text-[10px] text-ah-text-muted leading-relaxed">
                   Records your mic {state.isRecording ? "and camera " : ""}locally in your browser. 
                   Nothing is uploaded to a server.
                 </p>
