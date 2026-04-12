@@ -196,14 +196,21 @@ export function TopBar({
 
         <ThemeToggle isCompact />
 
+        {/* Secondary Leave — only on very wide screens; visually subdued since ControlBar has the primary action */}
         <Button
           id="topbar-leave"
-          variant="destructive"
+          variant="ghost"
           onClick={onLeave}
           size="sm"
-          className="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 hover:bg-red-100 dark:hover:bg-red-900/40 h-8 text-xs font-semibold hidden xl:flex"
+          className={cn(
+            "h-8 text-xs font-medium hidden xl:flex gap-1.5",
+            "text-ah-text-muted border border-ah-border",
+            "hover:text-[color:var(--ah-danger)] hover:border-[color:var(--ah-danger)]/50 hover:bg-[color:var(--ah-danger-glow)]",
+            "transition-all duration-200",
+          )}
+          aria-label="Leave room (secondary)"
         >
-          <LogOut className="h-3.5 w-3.5 mr-1.5" />
+          <LogOut className="h-3.5 w-3.5" />
           Leave
         </Button>
       </div>

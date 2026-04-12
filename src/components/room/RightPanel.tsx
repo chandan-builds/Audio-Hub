@@ -63,14 +63,14 @@ export function RightPanel({
               className={cn(
                 "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors relative",
                 activeTab === "chat"
-                  ? "border-violet-500 text-ah-accent"
+                  ? "border-[color:var(--ah-accent)] text-ah-accent"
                   : "border-transparent text-ah-text-muted hover:text-ah-text"
               )}
             >
               <MessageSquare className="h-4 w-4" />
               Chat
               {unreadCount > 0 && activeTab !== "chat" && (
-                <Badge className="ml-1 bg-violet-500 text-white border-0 text-[10px] h-4 min-w-[1rem] px-1 flex items-center justify-center">
+                <Badge className="ml-1 bg-[color:var(--ah-accent)] text-white border-0 text-[10px] h-4 min-w-[1rem] px-1 flex items-center justify-center">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </Badge>
               )}
@@ -82,7 +82,7 @@ export function RightPanel({
               className={cn(
                 "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
                 activeTab === "participants"
-                  ? "border-violet-500 text-ah-accent"
+                  ? "border-[color:var(--ah-accent)] text-ah-accent"
                   : "border-transparent text-ah-text-muted hover:text-ah-text"
               )}
             >
@@ -96,7 +96,7 @@ export function RightPanel({
               className={cn(
                 "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
                 activeTab === "activity"
-                  ? "border-violet-500 text-ah-accent"
+                  ? "border-[color:var(--ah-accent)] text-ah-accent"
                   : "border-transparent text-ah-text-muted hover:text-ah-text"
               )}
             >

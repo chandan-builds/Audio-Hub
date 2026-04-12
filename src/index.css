@@ -152,47 +152,61 @@
     --ah-success:          oklch(0.72 0.19 160);     /* emerald-400 */
     --ah-danger:           oklch(0.64 0.22 25);      /* red-500 */
     --ah-danger-glow:      oklch(0.64 0.22 25 / 20%);
-    --ah-glass:            oklch(0.12 0 0 / 70%);    /* frosted glass bg */
-    --ah-glass-border:     oklch(1 0 0 / 8%);        /* glass border */
+    --ah-danger-bg:        oklch(0.60 0.22 25);      /* red-500 solid */
+    --ah-danger-hover:     oklch(0.53 0.22 25);      /* red-600 */
+    --ah-danger-text:      oklch(1 0 0);             /* white */
+    --ah-glass:            oklch(0.12 0 0 / 72%);    /* frosted glass bg */
+    --ah-glass-border:     oklch(1 0 0 / 10%);       /* glass border */
     --ah-glass-hover:      oklch(0.18 0 0 / 80%);
+    --ah-shadow:           0 4px 24px oklch(0 0 0 / 32%);
+    --ah-control-shadow:   0 8px 32px oklch(0 0 0 / 40%);
+    --ah-slider-track:     oklch(0.25 0 0);
+    --ah-slider-fill:      oklch(0.65 0.24 285);
 }
 
 /* ── Light-mode Audio Hub tokens ─────────────────────────────────────────── */
 :root {
-    --ah-bg:            oklch(0.97 0 0);      /* zinc-50 equiv                */
-    --ah-surface:       oklch(1 0 0);         /* white                        */
+    --ah-bg:            oklch(0.962 0.004 265); /* subtle cool off-white       */
+    --ah-surface:       oklch(1 0 0);           /* white cards/panels          */
     --ah-surface-raised:oklch(0.985 0 0);
     --ah-overlay:       oklch(1 0 0 / 80%);
-    --ah-border:        oklch(0.922 0 0);
-    --ah-border-subtle: oklch(0.94 0 0);
-    --ah-text:          oklch(0.145 0 0);     /* near-black                   */
-    --ah-text-muted:    oklch(0.556 0 0);
-    --ah-text-faint:    oklch(0.708 0 0);
+    --ah-border:        oklch(0.908 0 0);        /* slightly stronger border    */
+    --ah-border-subtle: oklch(0.935 0 0);
+    --ah-text:          oklch(0.145 0 0);        /* near-black                  */
+    --ah-text-muted:    oklch(0.48 0 0);         /* darker muted for contrast   */
+    --ah-text-faint:    oklch(0.65 0 0);
     --ah-toggle-track:  oklch(0.878 0 0);     /* zinc-200                     */
     --ah-toggle-thumb:  oklch(1 0 0);         /* white thumb                  */
-    --ah-header-bg:     oklch(1 0 0 / 80%);
-    --ah-control-bg:    oklch(1 0 0 / 92%);
-    --ah-control-hover: oklch(0.95 0 0);
+    --ah-header-bg:     oklch(1 0 0 / 88%);
+    --ah-control-bg:    oklch(1 0 0 / 98%);      /* near-solid for control bar  */
+    --ah-control-hover: oklch(0.94 0.002 265);   /* cool hover                  */
     --ah-selection-bg:  oklch(0.878 0 0);
     --ah-signal-off:    oklch(0.55 0 0);
     --ah-focus-ring:    oklch(0.64 0.22 285 / 35%);
     --ah-focus-ring-strong: oklch(0.58 0.22 285 / 50%);
     --ah-speaking-ring: oklch(0.62 0.18 160 / 45%);
-    --ah-border-strong: oklch(0 0 0 / 18%);   /* stronger hover border (light)*/
-    --ah-text-subtle:   oklch(0.45 0 0);      /* alias: slightly darker faint */
-    --ah-card-radius:   0.875rem;             /* peer card corner radius      */
+    --ah-border-strong: oklch(0 0 0 / 20%);      /* stronger hover border       */
+    --ah-text-subtle:   oklch(0.42 0 0);
+    --ah-card-radius:   0.875rem;
 
     /* Premium Overhaul Tokens (Light Mode) */
     --ah-accent:           oklch(0.58 0.24 285);     /* violet-600 */
     --ah-accent-hover:     oklch(0.50 0.24 285);     /* violet-700 */
     --ah-accent-glow:      oklch(0.58 0.24 285 / 20%);
-    --ah-accent-subtle:    oklch(0.58 0.24 285 / 8%);
+    --ah-accent-subtle:    oklch(0.58 0.24 285 / 10%);
     --ah-success:          oklch(0.62 0.19 160);     /* emerald-600 */
     --ah-danger:           oklch(0.54 0.22 25);      /* red-600 */
     --ah-danger-glow:      oklch(0.54 0.22 25 / 20%);
-    --ah-glass:            oklch(0.98 0 0 / 70%);    /* frosted white bg */
-    --ah-glass-border:     oklch(0 0 0 / 8%);        /* subtle border */
-    --ah-glass-hover:      oklch(0.95 0 0 / 80%);
+    --ah-danger-bg:        oklch(0.54 0.22 25);      /* red-600 solid */
+    --ah-danger-hover:     oklch(0.47 0.22 25);      /* red-700 */
+    --ah-danger-text:      oklch(1 0 0);             /* white */
+    --ah-glass:            oklch(0.99 0 0 / 82%);    /* frosted white bg */
+    --ah-glass-border:     oklch(0 0 0 / 14%);       /* more visible in light mode */
+    --ah-glass-hover:      oklch(0.96 0 0 / 90%);
+    --ah-shadow:           0 2px 12px oklch(0 0 0 / 10%);
+    --ah-control-shadow:   0 4px 20px oklch(0 0 0 / 14%);
+    --ah-slider-track:     oklch(0.88 0 0);
+    --ah-slider-fill:      oklch(0.58 0.24 285);
 }
 
 /* ── Tailwind v4 theme extension ─────────────────────────────────────────── */
@@ -215,7 +229,7 @@
     --color-ah-control-hover:   var(--ah-control-hover);
     --color-ah-selection-bg:    var(--ah-selection-bg);
     --color-ah-signal-off:      var(--ah-signal-off);
-    
+
     /* Premium Overhaul Variables */
     --color-ah-accent:          var(--ah-accent);
     --color-ah-accent-hover:    var(--ah-accent-hover);
@@ -224,9 +238,14 @@
     --color-ah-success:         var(--ah-success);
     --color-ah-danger:          var(--ah-danger);
     --color-ah-danger-glow:     var(--ah-danger-glow);
+    --color-ah-danger-bg:       var(--ah-danger-bg);
+    --color-ah-danger-hover:    var(--ah-danger-hover);
+    --color-ah-danger-text:     var(--ah-danger-text);
     --color-ah-glass:           var(--ah-glass);
     --color-ah-glass-border:    var(--ah-glass-border);
     --color-ah-glass-hover:     var(--ah-glass-hover);
+    --color-ah-slider-track:    var(--ah-slider-track);
+    --color-ah-slider-fill:     var(--ah-slider-fill);
 
     /* Animation Extensions */
     --animate-mesh-shift: mesh-shift 15s ease-in-out infinite;
@@ -251,6 +270,49 @@
   ::selection {
     background-color: var(--ah-selection-bg);
     color: var(--ah-text);
+  }
+
+  /* Volume slider — cross-browser thumb/track styling */
+  input[type="range"].ah-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--ah-slider-track);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"].ah-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ah-slider-fill);
+    border: 2px solid var(--ah-surface);
+    box-shadow: 0 1px 4px oklch(0 0 0 / 30%);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  input[type="range"].ah-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+  input[type="range"].ah-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ah-slider-fill);
+    border: 2px solid var(--ah-surface);
+    cursor: pointer;
+  }
+  input[type="range"].ah-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--ah-slider-track);
+  }
+  input[type="range"].ah-slider:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--ah-accent);
+    outline-offset: 2px;
   }
 }
 

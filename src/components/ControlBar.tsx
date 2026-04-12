@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Volume2, Volume1, VolumeX,
   Video, VideoOff, SwitchCamera, Circle, Users, MessageSquare, Activity,
@@ -36,12 +36,22 @@ interface ControlBarProps {
   peerCount?: number;
 }
 
+/* ─── Active-state color map (semantic, theme-aware) ──────────────────────── */
+// Uses CSS custom properties so both light and dark modes benefit
+const ACTIVE_CLASSES: Record<string, string> = {
+  violet:  "bg-ah-accent-subtle border-[color:var(--ah-accent)] text-[color:var(--ah-accent)] shadow-[0_0_0_1px_var(--ah-accent-glow)]",
+  cyan:    "bg-[oklch(0.55_0.22_210_/_15%)] border-[oklch(0.65_0.22_210_/_60%)] text-[oklch(0.7_0.22_210)] shadow-[0_0_0_1px_oklch(0.55_0.22_210_/_20%)]",
+  emerald: "bg-[oklch(0.55_0.19_160_/_15%)] border-[oklch(0.62_0.19_160_/_60%)] text-[oklch(0.7_0.19_160)] shadow-[0_0_0_1px_oklch(0.55_0.19_160_/_20%)]",
+  red:     "bg-[oklch(0.54_0.22_25_/_15%)]  border-[oklch(0.6_0.22_25_/_60%)]  text-[oklch(0.68_0.22_25)]  shadow-[0_0_0_1px_oklch(0.54_0.22_25_/_20%)]",
+  amber:   "bg-[oklch(0.75_0.18_85_/_15%)] border-[oklch(0.8_0.18_85_/_60%)] text-[oklch(0.7_0.18_85)] shadow-[0_0_0_1px_oklch(0.75_0.18_85_/_20%)]",
+};
+
 /* ─── Pill button ──────────────────────────────────────────────────────────── */
 interface PillBtnProps {
   onClick: () => void;
   active?: boolean;
   danger?: boolean;
-  activeColor?: "violet" | "cyan" | "emerald" | "red" | "amber";
+  activeColor?: keyof typeof ACTIVE_CLASSES;
   label: string;
   kbd?: string;
   badge?: number;
@@ -53,14 +63,6 @@ function PillBtn({
   onClick, active, danger, activeColor = "violet",
   label, kbd, badge, children, className,
 }: PillBtnProps) {
-  const activeColorMap: Record<string, string> = {
-    violet: "bg-violet-500/20 border-violet-400/50 text-violet-300 shadow-violet-500/15",
-    cyan:   "bg-cyan-500/20   border-cyan-400/50   text-cyan-300   shadow-cyan-500/15",
-    emerald:"bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-emerald-500/15",
-    red:    "bg-red-500/20   border-red-400/50   text-red-300   shadow-red-500/20",
-    amber:  "bg-amber-500/20   border-amber-400/50   text-amber-300   shadow-amber-500/15",
-  };
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -69,15 +71,20 @@ function PillBtn({
           className={cn(
             "relative h-11 w-11 rounded-2xl border transition-all duration-200",
             "flex items-center justify-center",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ah-accent/60",
-            // Base — adapts to theme
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ah-accent)]/60",
+            // Base — fully theme-aware
             "bg-ah-control-bg border-ah-border text-ah-text-muted",
-            "hover:bg-ah-control-hover hover:border-ah-border-strong hover:text-ah-text",
+            "hover:bg-ah-control-hover hover:border-[color:var(--ah-border-strong)] hover:text-ah-text",
             "active:scale-95",
-            // Active state
-            active && !danger && activeColorMap[activeColor] + " shadow-md",
-            // Danger (leave button)
-            danger && "bg-red-500 border-red-400 text-white hover:bg-red-600 hover:border-red-500 shadow-md shadow-red-500/30 h-11 w-11",
+            // Active state — theme-aware
+            active && !danger && ACTIVE_CLASSES[activeColor],
+            // Danger (leave button) — uses semantic danger tokens
+            danger && [
+              "border-[color:var(--ah-danger-bg)] text-[color:var(--ah-danger-text)]",
+              "bg-[color:var(--ah-danger-bg)] shadow-md shadow-[color:var(--ah-danger-glow)]",
+              "hover:bg-[color:var(--ah-danger-hover)] hover:border-[color:var(--ah-danger-hover)]",
+              "h-11 w-11",
+            ],
             className,
           )}
           aria-label={label}
@@ -87,7 +94,7 @@ function PillBtn({
 
           {/* Badge */}
           {badge !== undefined && badge > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-violet-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white px-1 shadow-lg">
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-[color:var(--ah-accent)] rounded-full text-[9px] font-bold flex items-center justify-center text-white px-1 shadow-lg">
               {badge > 99 ? "99+" : badge}
             </span>
           )}
@@ -111,6 +118,103 @@ function PillBtn({
 /* ─── Divider ──────────────────────────────────────────────────────────────── */
 function Divider() {
   return <div className="h-6 w-px bg-ah-border mx-1 shrink-0" />;
+}
+
+/* ─── Inline Volume Control ────────────────────────────────────────────────── */
+interface VolumeControlProps {
+  volume: number;
+  onVolumeChange: (v: number) => void;
+}
+
+function VolumeControl({ volume, onVolumeChange }: VolumeControlProps) {
+  const [showSlider, setShowSlider] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const open = () => {
+    setShowSlider(true);
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setShowSlider(false), 3000);
+  };
+
+  const keep = () => {
+    clearTimeout(timeoutRef.current);
+    setShowSlider(true);
+  };
+
+  const close = () => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setShowSlider(false), 1200);
+  };
+
+  const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+
+  return (
+    <div
+      className="hidden sm:flex items-center gap-1.5"
+      onMouseEnter={open}
+      onMouseLeave={close}
+    >
+      {/* Volume icon / mute toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => { onVolumeChange(volume === 0 ? 1 : 0); open(); }}
+            onFocus={keep}
+            onBlur={close}
+            className={cn(
+              "h-8 w-8 rounded-xl border flex items-center justify-center transition-all duration-200",
+              "bg-ah-control-bg border-ah-border text-ah-text-muted",
+              "hover:bg-ah-control-hover hover:border-[color:var(--ah-border-strong)] hover:text-ah-text",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ah-accent)]/60",
+              "active:scale-95",
+              volume === 0 && "text-[color:var(--ah-danger)] border-[color:var(--ah-danger)]/40",
+            )}
+            aria-label={volume === 0 ? "Unmute participants" : "Mute participants"}
+          >
+            <VolumeIcon className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {volume === 0 ? "Unmute" : "Mute"} participants
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Expanding slider */}
+      <AnimatePresence>
+        {showSlider && (
+          <motion.div
+            key="vol-slider"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 88, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden flex items-center"
+            onMouseEnter={keep}
+            onMouseLeave={close}
+          >
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volume}
+              onChange={e => onVolumeChange(parseFloat(e.target.value))}
+              className="ah-slider w-full cursor-pointer"
+              aria-label="Participant volume"
+              style={{
+                // Dynamic fill using CSS gradient trick
+                background: `linear-gradient(to right,
+                  var(--ah-slider-fill) 0%,
+                  var(--ah-slider-fill) ${volume * 100}%,
+                  var(--ah-slider-track) ${volume * 100}%,
+                  var(--ah-slider-track) 100%)`,
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 /* ─── ControlBar ───────────────────────────────────────────────────────────── */
@@ -138,9 +242,7 @@ export function ControlBar({
 }: ControlBarProps) {
   const [elapsed, setElapsed] = useState(0);
   const [recordingPopoverOpen, setRecordingPopoverOpen] = useState(false);
-  const [showVolume, setShowVolume] = useState(false);
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-  const volumeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   /* Session timer */
   useEffect(() => {
@@ -156,12 +258,6 @@ export function ControlBar({
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
 
-  const showVolumeSlider = () => {
-    setShowVolume(true);
-    clearTimeout(volumeTimeoutRef.current);
-    volumeTimeoutRef.current = setTimeout(() => setShowVolume(false), 3000);
-  };
-
   return (
     /* Floating glass pill anchored at bottom */
     <motion.div
@@ -169,17 +265,17 @@ export function ControlBar({
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 280, damping: 28, delay: 0.1 }}
       className={cn(
-        "relative flex items-center justify-center gap-1.5 sm:gap-2",
-        "px-4 py-2.5",
+        "flex items-center justify-center gap-1.5 sm:gap-2",
+        "px-3 py-2.5 sm:px-4",
         "rounded-2xl sm:rounded-[22px]",
         "bg-ah-glass backdrop-blur-2xl border border-ah-glass-border",
-        "shadow-2xl shadow-black/40",
+        "shadow-[var(--ah-control-shadow)]",
         /* Full-width on tiny screens, auto on large */
         "w-full max-w-none sm:w-auto sm:max-w-fit sm:mx-auto",
       )}
     >
-      {/* ── Left info: timer ── */}
-      <div className="absolute left-4 hidden md:flex items-center gap-2">
+      {/* ── Session timer (md+) ── */}
+      <div className="hidden md:flex items-center gap-2 mr-1">
         <motion.div
           animate={{ opacity: [1, 0.4, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -189,6 +285,8 @@ export function ControlBar({
           {formatTime(elapsed)}
         </span>
       </div>
+
+      <Divider />
 
       {/* ── Group 1: Mic + Video ── */}
       <PillBtn
@@ -305,7 +403,7 @@ export function ControlBar({
             >
               <Circle className={cn(
                 "h-[18px] w-[18px]",
-                recordingState.isRecording ? "fill-red-400 text-red-400" : "text-ah-text-muted"
+                recordingState.isRecording ? "fill-[oklch(0.68_0.22_25)] text-[oklch(0.68_0.22_25)]" : "text-ah-text-muted"
               )} />
             </motion.div>
           </PillBtn>
@@ -331,53 +429,15 @@ export function ControlBar({
 
       <Divider />
 
+      {/* ── Volume (inline, desktop only) ── */}
+      <VolumeControl volume={volume} onVolumeChange={onVolumeChange} />
+
+      <Divider />
+
       {/* ── Leave ── */}
       <PillBtn onClick={onLeave} danger label="Leave Room" kbd="⌥Q">
         <PhoneOff className="h-[18px] w-[18px]" />
       </PillBtn>
-
-      {/* ── Right: volume ── */}
-      <div
-        className="absolute right-4 hidden lg:flex items-center gap-2"
-        onMouseEnter={showVolumeSlider}
-        onMouseLeave={() => {
-          clearTimeout(volumeTimeoutRef.current);
-          volumeTimeoutRef.current = setTimeout(() => setShowVolume(false), 1200);
-        }}
-      >
-        <button
-          onClick={() => { onVolumeChange(volume === 0 ? 1 : 0); showVolumeSlider(); }}
-          className="text-ah-text-muted hover:text-ah-text transition-colors"
-          aria-label="Toggle mute volume"
-        >
-          {volume === 0
-            ? <VolumeX className="h-4 w-4" />
-            : volume < 0.5
-            ? <Volume1 className="h-4 w-4" />
-            : <Volume2 className="h-4 w-4" />
-          }
-        </button>
-
-        <AnimatePresence>
-          {showVolume && (
-            <motion.input
-              key="vol-slider"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 80, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={volume}
-              onChange={e => onVolumeChange(parseFloat(e.target.value))}
-              className="h-1 cursor-pointer appearance-none rounded-full accent-violet-500 focus:outline-none"
-              style={{ width: 80 }}
-            />
-          )}
-        </AnimatePresence>
-      </div>
     </motion.div>
   );
 }
