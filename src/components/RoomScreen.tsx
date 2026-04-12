@@ -119,8 +119,8 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
       onWheel={handleWheel}
       onDoubleClick={toggleFullscreen}
       className={cn(
-        "bg-zinc-100 dark:bg-black overflow-hidden relative group select-none touch-none",
-        isFullscreen ? "w-screen h-screen m-0 rounded-none border-0" : "mb-6 w-full aspect-video md:h-[60vh] rounded-2xl border border-zinc-200 dark:border-zinc-800/50 shadow-2xl shadow-black/5 dark:shadow-black/50"
+        "bg-ah-bg overflow-hidden relative group select-none touch-none",
+        isFullscreen ? "w-screen h-screen m-0 rounded-none border-0" : "mb-6 w-full aspect-video md:h-[60vh] rounded-2xl border border-ah-border shadow-2xl shadow-black/10"
       )}
     >
       <div 
@@ -138,29 +138,29 @@ const ScreenShareFocus = memo(function ScreenShareFocus({ stream, userName }: { 
         {(controlsVisible || !isFullscreen) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 pointer-events-none">
             <div className="absolute top-4 left-4">
-              <Badge className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-200 shadow-lg pointer-events-auto">
+              <Badge className="bg-ah-glass backdrop-blur-md border border-ah-glass-border text-ah-text shadow-lg pointer-events-auto">
                 {userName}'s screen
               </Badge>
             </div>
             <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto zoom-controls">
               {isFullscreen && (
                 <>
-                  <div className="flex items-center gap-1 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 p-1.5 rounded-lg shadow-lg">
-                    <button onClick={resetZoom} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Reset Zoom"><ZoomOut className="h-4 w-4" /></button>
-                    <span className="text-[10px] font-mono font-bold w-10 text-center text-zinc-800 dark:text-zinc-200">{Math.round(scale * 100)}%</span>
-                    <button onClick={() => setScale(s => Math.min(5, s + 0.5))} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors text-zinc-600 dark:text-zinc-300" title="Zoom In"><ZoomIn className="h-4 w-4" /></button>
+                  <div className="flex items-center gap-1 bg-ah-glass backdrop-blur-md border border-ah-glass-border p-1.5 rounded-lg shadow-lg">
+                    <button onClick={resetZoom} className="p-1 hover:bg-ah-control-hover rounded transition-colors text-ah-text-muted hover:text-ah-text" title="Reset Zoom"><ZoomOut className="h-4 w-4" /></button>
+                    <span className="text-[10px] font-mono font-bold w-10 text-center text-ah-text">{Math.round(scale * 100)}%</span>
+                    <button onClick={() => setScale(s => Math.min(5, s + 0.5))} className="p-1 hover:bg-ah-control-hover rounded transition-colors text-ah-text-muted hover:text-ah-text" title="Zoom In"><ZoomIn className="h-4 w-4" /></button>
                   </div>
                   {scale > 1 && (
-                    <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 h-8 px-3 rounded-lg shadow-lg flex items-center gap-2">
+                    <div className="bg-ah-glass backdrop-blur-md border border-ah-glass-border h-8 px-3 rounded-lg shadow-lg flex items-center gap-2">
                        <MousePointer2 className="h-3.5 w-3.5 text-violet-500" />
-                       <span className="text-[11px] font-medium text-zinc-800 dark:text-zinc-200">Drag to pan</span>
+                       <span className="text-[11px] font-medium text-ah-text">Drag to pan</span>
                     </div>
                   )}
                 </>
               )}
               <button 
                 onClick={toggleFullscreen}
-                className="bg-white/80 hover:bg-white dark:bg-zinc-900/80 dark:hover:bg-zinc-900 backdrop-blur-md border border-zinc-200 dark:border-zinc-700/50 p-2 rounded-lg shadow-lg text-zinc-700 dark:text-zinc-200 transition-colors"
+                className="bg-ah-glass hover:bg-ah-surface backdrop-blur-md border border-ah-glass-border p-2 rounded-lg shadow-lg text-ah-text transition-colors"
                 title={isFullscreen ? "Exit Fullscreen" : "Fullscreen (Double-click)"}
               >
                 {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -263,12 +263,12 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
           />
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <Avatar className="h-28 w-28 border-4 border-zinc-700">
-              <AvatarFallback className="bg-gradient-to-br from-zinc-700 to-zinc-800 text-zinc-200 text-4xl font-bold">
+            <Avatar className="h-28 w-28 border-4 border-ah-border">
+              <AvatarFallback className="bg-gradient-to-br from-ah-surface-raised to-ah-surface text-ah-text text-4xl font-bold">
                 {name.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <p className="text-zinc-300 text-lg font-semibold">{name}</p>
+            <p className="text-ah-text-muted text-lg font-semibold">{name}</p>
           </div>
         )}
 

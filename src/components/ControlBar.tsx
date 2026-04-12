@@ -70,9 +70,9 @@ function PillBtn({
             "relative h-11 w-11 rounded-2xl border transition-all duration-200",
             "flex items-center justify-center",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ah-accent/60",
-            // Base
-            "bg-white/5 border-white/10 text-white/60",
-            "hover:bg-white/10 hover:border-white/20 hover:text-white",
+            // Base — adapts to theme
+            "bg-ah-control-bg border-ah-border text-ah-text-muted",
+            "hover:bg-ah-control-hover hover:border-ah-border-strong hover:text-ah-text",
             "active:scale-95",
             // Active state
             active && !danger && activeColorMap[activeColor] + " shadow-md",
@@ -110,7 +110,7 @@ function PillBtn({
 
 /* ─── Divider ──────────────────────────────────────────────────────────────── */
 function Divider() {
-  return <div className="h-6 w-px bg-white/10 mx-1 shrink-0" />;
+  return <div className="h-6 w-px bg-ah-border mx-1 shrink-0" />;
 }
 
 /* ─── ControlBar ───────────────────────────────────────────────────────────── */
@@ -185,7 +185,7 @@ export function ControlBar({
           transition={{ duration: 2, repeat: Infinity }}
           className="h-1.5 w-1.5 rounded-full bg-emerald-400"
         />
-        <span className="text-[11px] font-mono text-white/40 tabular-nums">
+        <span className="text-[11px] font-mono text-ah-text-muted tabular-nums">
           {formatTime(elapsed)}
         </span>
       </div>
@@ -305,7 +305,7 @@ export function ControlBar({
             >
               <Circle className={cn(
                 "h-[18px] w-[18px]",
-                recordingState.isRecording ? "fill-red-400 text-red-400" : "text-white/60"
+                recordingState.isRecording ? "fill-red-400 text-red-400" : "text-ah-text-muted"
               )} />
             </motion.div>
           </PillBtn>
@@ -347,7 +347,7 @@ export function ControlBar({
       >
         <button
           onClick={() => { onVolumeChange(volume === 0 ? 1 : 0); showVolumeSlider(); }}
-          className="text-white/30 hover:text-white/70 transition-colors"
+          className="text-ah-text-muted hover:text-ah-text transition-colors"
           aria-label="Toggle mute volume"
         >
           {volume === 0

@@ -67,7 +67,7 @@ export function DraggablePip({
       transition={{ type: "spring", stiffness: 420, damping: 34 }}
       className={cn(
         "absolute bottom-3 right-3 z-20 aspect-video w-28 overflow-hidden",
-        "rounded-xl border border-white/20 bg-black",
+        "rounded-xl border border-ah-glass-border bg-ah-bg",
         "shadow-2xl shadow-black/60",
         "cursor-grab touch-none active:cursor-grabbing",
         "transition-all duration-150",
