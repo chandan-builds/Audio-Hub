@@ -43,12 +43,13 @@ export function ThemeProvider({
     
     root.classList.remove("light", "dark");
     root.classList.add(theme);
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
     
-    if (theme === "dark") {
-      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#0a0a0a");
-    } else {
-      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#ffffff");
-    }
+    const themeColor = theme === "dark" ? "#0a0a0a" : "#ffffff";
+    document
+      .querySelectorAll('meta[name="theme-color"]')
+      .forEach((meta) => meta.setAttribute("content", themeColor));
   }, [theme]);
 
   const setTheme = (theme: Theme) => {

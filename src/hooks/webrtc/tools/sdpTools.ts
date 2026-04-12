@@ -1,6 +1,6 @@
 /**
  * Ultra-low-latency Opus SDP configuration optimized for Bluetooth audio devices.
- * 
+ *
  * Key parameters:
  * - stereo=0; sprop-stereo=0  → Mono (halves codec latency vs stereo)
  * - maxaveragebitrate=64000    → 64kbps, good quality mono (higher wastes BT bandwidth)
@@ -14,14 +14,14 @@ export function setOpusLowLatency(sdp: string): string {
   // Replace existing Opus fmtp line
   let modified = sdp.replace(
     /a=fmtp:111 [^\r\n]*/g,
-    "a=fmtp:111 stereo=0;sprop-stereo=0;maxaveragebitrate=64000;useinbandfec=1;usedtx=0;ptime=10;minptime=10;maxptime=20;cbr=1"
+    "a=fmtp:111 stereo=0;sprop-stereo=0;maxaveragebitrate=64000;useinbandfec=1;usedtx=0;ptime=10;minptime=10;maxptime=20;cbr=1",
   );
 
   // If no fmtp:111 line existed, insert one after the Opus rtpmap line
   if (!modified.includes("a=fmtp:111")) {
     modified = modified.replace(
       /(a=rtpmap:111 opus\/48000\/2\r?\n)/g,
-      "$1a=fmtp:111 stereo=0;sprop-stereo=0;maxaveragebitrate=64000;useinbandfec=1;usedtx=0;ptime=10;minptime=10;maxptime=20;cbr=1\r\n"
+      "$1a=fmtp:111 stereo=0;sprop-stereo=0;maxaveragebitrate=64000;useinbandfec=1;usedtx=0;ptime=10;minptime=10;maxptime=20;cbr=1\r\n",
     );
   }
 
@@ -29,7 +29,7 @@ export function setOpusLowLatency(sdp: string): string {
   if (!modified.includes("a=ptime:")) {
     modified = modified.replace(
       /(a=rtpmap:111 opus\/48000\/2\r?\n)/g,
-      "$1a=ptime:10\r\n"
+      "$1a=ptime:10\r\n",
     );
   }
 
@@ -38,7 +38,7 @@ export function setOpusLowLatency(sdp: string): string {
 
 /**
  * Bluetooth-optimized audio constraints for getUserMedia.
- * 
+ *
  * Design decisions for BT low latency:
  * - echoCancellation: true     → Essential to avoid feedback loops with BT speakers
  * - noiseSuppression: false    → Adds ~10-20ms processing latency, bad for BT

@@ -116,6 +116,67 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    /* ── Audio Hub dark-mode semantic tokens ───────────────────────────────
+       These alias the shadcn base tokens. Components should reference these
+       --ah-* variables, never hardcoded zinc/slate/gray values.
+       ─────────────────────────────────────────────────────────────────────── */
+    --ah-bg:            oklch(0.08 0 0);      /* page root (#0a0a0a equiv)    */
+    --ah-surface:       oklch(0.145 0 0);     /* cards, panels                */
+    --ah-surface-raised:oklch(0.205 0 0);     /* elevated cards               */
+    --ah-overlay:       oklch(0.205 0 0 / 80%); /* modal/sheet backdrop       */
+    --ah-border:        oklch(1 0 0 / 10%);   /* aliases --border             */
+    --ah-border-subtle: oklch(1 0 0 / 6%);    /* hair-line separators         */
+    --ah-text:          oklch(0.985 0 0);     /* primary text                 */
+    --ah-text-muted:    oklch(0.708 0 0);     /* secondary/hint text          */
+    --ah-text-faint:    oklch(0.556 0 0);     /* placeholders                 */
+    --ah-toggle-track:  oklch(0.269 0 0);     /* ThemeToggle inactive track   */
+    --ah-toggle-thumb:  oklch(0.08 0 0);      /* ThemeToggle thumb            */
+    --ah-header-bg:     oklch(0.12 0 0 / 60%); /* header glassmorphism        */
+    --ah-selection-bg:  oklch(0.269 0 0);     /* text selection               */
+    --ah-signal-off:    oklch(0.35 0 0);      /* signal-off badge             */
+    --ah-focus-ring:    oklch(0.58 0.22 290 / 35%);
+    --ah-focus-ring-strong: oklch(0.68 0.20 285 / 50%);
+    --ah-speaking-ring: oklch(0.70 0.18 160 / 45%);
+}
+
+/* ── Light-mode Audio Hub tokens ─────────────────────────────────────────── */
+:root {
+    --ah-bg:            oklch(0.97 0 0);      /* zinc-50 equiv                */
+    --ah-surface:       oklch(1 0 0);         /* white                        */
+    --ah-surface-raised:oklch(0.985 0 0);
+    --ah-overlay:       oklch(1 0 0 / 80%);
+    --ah-border:        oklch(0.922 0 0);
+    --ah-border-subtle: oklch(0.94 0 0);
+    --ah-text:          oklch(0.145 0 0);     /* near-black                   */
+    --ah-text-muted:    oklch(0.556 0 0);
+    --ah-text-faint:    oklch(0.708 0 0);
+    --ah-toggle-track:  oklch(0.878 0 0);     /* zinc-200                     */
+    --ah-toggle-thumb:  oklch(1 0 0);         /* white thumb                  */
+    --ah-header-bg:     oklch(1 0 0 / 80%);
+    --ah-selection-bg:  oklch(0.878 0 0);
+    --ah-signal-off:    oklch(0.55 0 0);
+    --ah-focus-ring:    oklch(0.64 0.22 285 / 35%);
+    --ah-focus-ring-strong: oklch(0.58 0.22 285 / 50%);
+    --ah-speaking-ring: oklch(0.62 0.18 160 / 45%);
+}
+
+/* ── Tailwind v4 theme extension ─────────────────────────────────────────── */
+@theme inline {
+    /* Expose --ah-* to Tailwind's JIT as bg-ah-bg, text-ah-text, etc.        */
+    --color-ah-bg:              var(--ah-bg);
+    --color-ah-surface:         var(--ah-surface);
+    --color-ah-surface-raised:  var(--ah-surface-raised);
+    --color-ah-border:          var(--ah-border);
+    --color-ah-border-subtle:   var(--ah-border-subtle);
+    --color-ah-text:            var(--ah-text);
+    --color-ah-text-muted:      var(--ah-text-muted);
+    --color-ah-text-faint:      var(--ah-text-faint);
+    --color-ah-toggle-track:    var(--ah-toggle-track);
+    --color-ah-toggle-thumb:    var(--ah-toggle-thumb);
+    --color-ah-header-bg:       var(--ah-header-bg);
+    --color-ah-selection-bg:    var(--ah-selection-bg);
+    --color-ah-signal-off:      var(--ah-signal-off);
 }
 
 @layer base {
@@ -130,4 +191,10 @@
     @apply font-sans;
     color-scheme: light dark;
     }
+
+  /* Semantic selection colour using our token */
+  ::selection {
+    background-color: var(--ah-selection-bg);
+    color: var(--ah-text);
+  }
 }

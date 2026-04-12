@@ -1,9 +1,14 @@
-export type VideoQuality = 'high' | 'medium' | 'low' | 'off';
+export type VideoQuality = "high" | "medium" | "low" | "off";
 
-export type LayoutMode = 'grid' | 'speaker' | 'pinned' | 'presentation';
-export type PanelTab = 'chat' | 'participants' | null;
-export type ConnectionQuality = 'excellent' | 'good' | 'poor' | 'critical' | 'unknown';
-export type ToastType = 'info' | 'success' | 'warning' | 'error';
+export type LayoutMode = "grid" | "speaker" | "pinned" | "presentation";
+export type PanelTab = "chat" | "participants" | null;
+export type ConnectionQuality =
+  | "excellent"
+  | "good"
+  | "poor"
+  | "critical"
+  | "unknown";
+export type ToastType = "info" | "success" | "warning" | "error";
 
 export interface Toast {
   id: string;
@@ -14,17 +19,31 @@ export interface Toast {
 }
 
 export interface ConnectionHealth {
-  state: 'connected' | 'reconnecting' | 'disconnected' | 'failed';
+  state: "connected" | "reconnecting" | "disconnected" | "failed";
   quality: ConnectionQuality;
   lastChecked: number;
+}
+
+export interface MediaPresentation {
+  /** The primary video to display (screen share takes priority when active) */
+  primaryStream: MediaStream | null;
+  /** The secondary video (camera PiP when screen sharing) */
+  secondaryStream: MediaStream | null;
+  /** What's currently being shown as primary */
+  primarySource: "camera" | "screen" | "none";
 }
 
 export interface PeerData {
   userId: string;
   userName: string;
+  /** The peer's audio stream (always present once connected). */
   stream: MediaStream | null;
+  /** Camera video stream — null when camera is off or not yet received. */
+  cameraStream: MediaStream | null;
+  /** Screen-share stream — null when not sharing or not yet received. */
   screenStream: MediaStream | null;
-  videoStream: MediaStream | null;
+  /** Derived presentation — always computed via computePresentation(). Never mutated directly. */
+  presentation: MediaPresentation;
   connection: RTCPeerConnection;
   isMuted: boolean;
   isSharingScreen: boolean;
@@ -47,7 +66,16 @@ export interface ChatMessage {
 }
 
 export interface ActivityEvent {
-  type: "join" | "leave" | "mute" | "unmute" | "screen-share" | "screen-stop" | "chat" | "video-on" | "video-off";
+  type:
+    | "join"
+    | "leave"
+    | "mute"
+    | "unmute"
+    | "screen-share"
+    | "screen-stop"
+    | "chat"
+    | "video-on"
+    | "video-off";
   userName: string;
   timestamp: number;
 }
@@ -55,8 +83,7 @@ export interface ActivityEvent {
 export interface WebRTCContextState {
   peers: Map<string, PeerData>;
   localStream: MediaStream | null;
-  localScreenStream: MediaStream | null;
-  localVideoStream: MediaStream | null;
+  localPresentation: MediaPresentation;
   isMuted: boolean;
   isSharingScreen: boolean;
   isVideoEnabled: boolean;

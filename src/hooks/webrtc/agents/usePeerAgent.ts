@@ -1,16 +1,32 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useStableMemory } from "../memory/useWebRTCMemory";
-import { setOpusLowLatency, createLowLatencyAudioContext } from "../tools/sdpTools";
+import {
+  setOpusLowLatency,
+  createLowLatencyAudioContext,
+} from "../tools/sdpTools";
+import { computePresentation, EMPTY_PRESENTATION } from "../tools/presentationTools";
 import { PeerData } from "../types";
 
 /**
- * Stream ID label convention:
- * - Audio stream: default (no label) or "audio"
- * - Video (camera) stream: labeled "camera-video" via data channels or identified by track kind + no screen share
- * - Screen share stream: labeled "screen-share" or identified second video track
- * 
- * Strategy: We use transceiver mid / stream ID tracking to differentiate camera vs screen share.
- * The first video stream added to a peer is camera. Screen share uses addTrack with a separate MediaStream.
+ * Deterministic stream classification strategy
+ * ─────────────────────────────────────────────
+ * When useMediaAgent adds a track to a peer connection it emits
+ * user-media-state with cameraStreamId or screenStreamId — the actual
+ * MediaStream.id of the stream used for addTrack().
+ *
+ * useSignalingAgent stores those IDs in memory.peerStreamIdsRef.
+ *
+ * When ontrack fires here, we look up the incoming stream.id in
+ * peerStreamIdsRef to get a deterministic "camera" | "screen" label.
+ *
+ * Race condition (ontrack fires before user-media-state arrives):
+ *   → We park the stream in pendingVideoStreamsRef keyed by peerId+streamId.
+ *   → useSignalingAgent drains the pending map when its IDs arrive.
+ *
+ * This eliminates:
+ *   • rawVideoStreams[] — no arrays of streams
+ *   • Track ordering assumptions — first/second video is meaningless here
+ *   • Heuristic presentation guessing — every assignment is labeled
  */
 
 interface UsePeerAgentOptions {
@@ -29,7 +45,10 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
   const setupAudioAnalyser = useCallback(
     (stream: MediaStream, peerId: string) => {
       const memory = memoryRef.current;
-      if (!memory.audioContextRef.current || memory.audioContextRef.current.state === "closed") {
+      if (
+        !memory.audioContextRef.current ||
+        memory.audioContextRef.current.state === "closed"
+      ) {
         memory.audioContextRef.current = createLowLatencyAudioContext();
       }
       const ctx = memory.audioContextRef.current;
@@ -40,50 +59,103 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
       source.connect(analyser);
       memory.analyserNodesRef.current.set(peerId, analyser);
     },
-    [memoryRef]
+    [memoryRef],
   );
 
-  const cleanupPeer = useCallback((peerId: string) => {
-    const memory = memoryRef.current;
-    const peer = memory.peersRef.current.get(peerId);
-    if (peer) {
-      peer.connection.close();
-      memory.peersRef.current.delete(peerId);
-      memory.analyserNodesRef.current.delete(peerId);
-      memory.iceCandidateBufferRef.current.delete(peerId);
-      memory.makingOfferRef.current.delete(peerId);
-      memory.negotiationDoneRef.current.delete(peerId);
-      memory.politeRef.current.delete(peerId);
-      memory.ignoreOfferRef.current.delete(peerId);
-      memory.setPeers((prev) => {
-        const updated = new Map(prev);
-        updated.delete(peerId);
-        return updated;
-      });
-    }
-  }, [memoryRef]);
-
-  const flushIceCandidates = useCallback(async (peerId: string, pc: RTCPeerConnection) => {
-    const memory = memoryRef.current;
-    const buffered = memory.iceCandidateBufferRef.current.get(peerId);
-    if (buffered && buffered.length > 0) {
-      console.log(`[ICE] Flushing ${buffered.length} buffered candidates for ${peerId}`);
-      for (const candidate of buffered) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-          console.warn("[ICE] Error adding buffered candidate:", err);
-        }
+  const cleanupPeer = useCallback(
+    (peerId: string) => {
+      const memory = memoryRef.current;
+      const peer = memory.peersRef.current.get(peerId);
+      if (peer) {
+        peer.connection.close();
+        memory.peersRef.current.delete(peerId);
+        memory.analyserNodesRef.current.delete(peerId);
+        memory.iceCandidateBufferRef.current.delete(peerId);
+        memory.makingOfferRef.current.delete(peerId);
+        memory.negotiationDoneRef.current.delete(peerId);
+        memory.politeRef.current.delete(peerId);
+        memory.ignoreOfferRef.current.delete(peerId);
+        memory.senderMapRef.current.delete(peerId);
+        memory.peerStreamIdsRef.current.delete(peerId);
+        memory.pendingVideoStreamsRef.current.delete(peerId);
+        memory.setPeers((prev) => {
+          const updated = new Map(prev);
+          updated.delete(peerId);
+          return updated;
+        });
       }
-      memory.iceCandidateBufferRef.current.set(peerId, []);
-    }
-  }, [memoryRef]);
+    },
+    [memoryRef],
+  );
+
+  const flushIceCandidates = useCallback(
+    async (peerId: string, pc: RTCPeerConnection) => {
+      const memory = memoryRef.current;
+      const buffered = memory.iceCandidateBufferRef.current.get(peerId);
+      if (buffered && buffered.length > 0) {
+        console.log(
+          `[ICE] Flushing ${buffered.length} buffered candidates for ${peerId}`,
+        );
+        for (const candidate of buffered) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            console.warn("[ICE] Error adding buffered candidate:", err);
+          }
+        }
+        memory.iceCandidateBufferRef.current.set(peerId, []);
+      }
+    },
+    [memoryRef],
+  );
+
+  /**
+   * Applies a classified video stream to a peer's state.
+   * Mutates BOTH the React state (setPeers) AND the stable ref (peersRef).
+   */
+  const applyVideoStream = useCallback(
+    (
+      peerId: string,
+      stream: MediaStream | null,
+      source: "camera" | "screen",
+    ) => {
+      const memory = memoryRef.current;
+
+      const applyToPeerData = (existing: PeerData): PeerData => {
+        const updated: PeerData = {
+          ...existing,
+          cameraStream: source === "camera" ? stream : existing.cameraStream,
+          screenStream: source === "screen" ? stream : existing.screenStream,
+        };
+        updated.presentation = computePresentation(
+          updated.cameraStream,
+          updated.screenStream,
+          updated.isSharingScreen,
+        );
+        return updated;
+      };
+
+      memory.setPeers((prev) => {
+        const existing = prev.get(peerId);
+        if (!existing) return prev;
+        const next = new Map<string, PeerData>(prev);
+        next.set(peerId, applyToPeerData(existing));
+        return next;
+      });
+
+      const ref = memory.peersRef.current.get(peerId);
+      if (ref) {
+        memory.peersRef.current.set(peerId, applyToPeerData(ref));
+      }
+    },
+    [memoryRef],
+  );
 
   const createPeerConnection = useCallback(
     (
       targetUserId: string,
       targetUserName: string,
-      isInitiator: boolean
+      isInitiator: boolean,
     ): RTCPeerConnection => {
       const memory = memoryRef.current;
       const pc = new RTCPeerConnection({
@@ -93,38 +165,50 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
         rtcpMuxPolicy: "require",
       });
 
-      // Initialize state for this peer
+      // Initialize negotiation state for this peer
       memory.iceCandidateBufferRef.current.set(targetUserId, []);
       memory.makingOfferRef.current.set(targetUserId, false);
       memory.ignoreOfferRef.current.set(targetUserId, false);
       memory.negotiationDoneRef.current.set(targetUserId, false);
-      
-      // Perfect negotiation: the user who IS the initiator is IMPOLITE (polite = false).
+
+      // Perfect negotiation: the initiator is IMPOLITE (will not rollback on collision)
       memory.politeRef.current.set(targetUserId, !isInitiator);
 
-      // Add local audio tracks
+      // ── Add local tracks ──────────────────────────────────────────────────
+
+      // Audio
       if (memory.localStreamRef.current) {
         memory.localStreamRef.current.getTracks().forEach((track) => {
           pc.addTrack(track, memory.localStreamRef.current!);
         });
       }
 
-      // Add local camera video track if we're currently sharing video
+      // Camera video (if already enabled)
       if (memory.videoStreamRef.current) {
         const videoTrack = memory.videoStreamRef.current.getVideoTracks()[0];
         if (videoTrack) {
-          pc.addTrack(videoTrack, memory.videoStreamRef.current);
+          const sender = pc.addTrack(videoTrack, memory.videoStreamRef.current);
+          const senders = memory.senderMapRef.current.get(targetUserId) || {};
+          senders.cameraSender = sender;
+          memory.senderMapRef.current.set(targetUserId, senders);
         }
       }
 
-      // Add screen share track if we're currently sharing
+      // Screen share (if already sharing)
       if (memory.screenStreamRef.current) {
         const videoTrack = memory.screenStreamRef.current.getVideoTracks()[0];
         if (videoTrack) {
-          pc.addTrack(videoTrack, memory.screenStreamRef.current);
+          const sender = pc.addTrack(
+            videoTrack,
+            memory.screenStreamRef.current,
+          );
+          const senders = memory.senderMapRef.current.get(targetUserId) || {};
+          senders.screenSender = sender;
+          memory.senderMapRef.current.set(targetUserId, senders);
         }
       }
 
+      // ── ICE ──────────────────────────────────────────────────────────────
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           memory.socketRef.current?.emit("signal", {
@@ -137,191 +221,110 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
         }
       };
 
-      /**
-       * Track differentiation strategy:
-       * We track which video stream IDs we've seen per peer.
-       * - First video stream → camera video
-       * - Second video stream → screen share
-       * 
-       * When a peer stops screen share (track.onended), we clean it up.
-       * When a peer stops camera (track.onended), we clean it up.
-       */
-      const videoStreamIds = new Set<string>();
-
+      // ── Track reception ──────────────────────────────────────────────────
       pc.ontrack = (event) => {
-        console.log(`[WebRTC] ontrack from ${targetUserName}, kind=${event.track.kind}, streams=${event.streams.length}`);
-        const incomingStream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+        console.log(
+          `[WebRTC] ontrack from ${targetUserName}, kind=${event.track.kind}, streams=${event.streams.length}`,
+        );
+        const incomingStream =
+          event.streams && event.streams[0]
+            ? event.streams[0]
+            : new MediaStream([event.track]);
 
         if (event.track.kind === "audio") {
+          // ── Audio track ─────────────────────────────────────────────────
           setupAudioAnalyser(incomingStream, targetUserId);
-          
-          memory.setPeers((prev) => {
-            const updated = new Map<string, PeerData>(prev);
-            const existing = updated.get(targetUserId);
-            const peerData: PeerData = {
-              userId: targetUserId,
-              userName: targetUserName,
-              stream: incomingStream,
-              screenStream: existing?.screenStream ?? null,
-              videoStream: existing?.videoStream ?? null,
-              connection: pc,
-              isMuted: existing?.isMuted ?? false,
-              isSharingScreen: existing?.isSharingScreen ?? false,
-              isVideoEnabled: existing?.isVideoEnabled ?? false,
-              connectionState: pc.iceConnectionState,
-              audioLevel: 0,
-              isSpeaking: false,
-            };
-            updated.set(targetUserId, peerData);
-            return updated;
-          });
-          
-          const existingRef = memory.peersRef.current.get(targetUserId);
-          memory.peersRef.current.set(targetUserId, {
-            ...(existingRef as PeerData),
+
+          const buildAudioPeer = (existing: PeerData | undefined): PeerData => ({
             userId: targetUserId,
             userName: targetUserName,
             stream: incomingStream,
-            screenStream: existingRef?.screenStream ?? null,
-            videoStream: existingRef?.videoStream ?? null,
+            cameraStream: existing?.cameraStream ?? null,
+            screenStream: existing?.screenStream ?? null,
+            presentation: existing?.presentation ?? EMPTY_PRESENTATION,
             connection: pc,
-            isMuted: existingRef?.isMuted ?? false,
-            isSharingScreen: existingRef?.isSharingScreen ?? false,
-            isVideoEnabled: existingRef?.isVideoEnabled ?? false,
+            isMuted: existing?.isMuted ?? false,
+            isSharingScreen: existing?.isSharingScreen ?? false,
+            isVideoEnabled: existing?.isVideoEnabled ?? false,
             connectionState: pc.iceConnectionState,
-            audioLevel: existingRef?.audioLevel ?? 0,
-            isSpeaking: existingRef?.isSpeaking ?? false,
+            audioLevel: existing?.audioLevel ?? 0,
+            isSpeaking: existing?.isSpeaking ?? false,
           });
+
+          memory.setPeers((prev) => {
+            const next = new Map<string, PeerData>(prev);
+            next.set(targetUserId, buildAudioPeer(prev.get(targetUserId)));
+            return next;
+          });
+          memory.peersRef.current.set(
+            targetUserId,
+            buildAudioPeer(memory.peersRef.current.get(targetUserId)),
+          );
         } else if (event.track.kind === "video") {
-          const streamId = incomingStream.id;
-          const isNewVideoStream = !videoStreamIds.has(streamId);
+          // ── Video track — deterministic classification via stream IDs ───
+          const incomingStreamId = incomingStream.id;
+          const streamIds = memory.peerStreamIdsRef.current.get(targetUserId);
 
-          if (isNewVideoStream) {
-            videoStreamIds.add(streamId);
-          }
+          let source: "camera" | "screen" | null = null;
 
-          // Determine if this is camera or screen share based on existing state
-          const existingPeer = memory.peersRef.current.get(targetUserId);
-          const hasExistingVideo = existingPeer?.videoStream && existingPeer.videoStream.id !== streamId;
-          const hasExistingScreen = existingPeer?.screenStream && existingPeer.screenStream.id !== streamId;
-
-          // If peer already has a camera video and this is a new stream → it's screen share
-          // If peer has no camera video → first stream is camera, unless peer signals screen share
-          const isScreenShare = hasExistingVideo || (existingPeer?.isSharingScreen && !hasExistingScreen);
-
-          if (isScreenShare) {
-            // This is a screen share stream
-            memory.setPeers((prev) => {
-              const existing = prev.get(targetUserId);
-              if (existing && existing.screenStream?.id !== streamId) {
-                const updated = new Map<string, PeerData>(prev);
-                updated.set(targetUserId, {
-                  ...existing,
-                  screenStream: incomingStream,
-                  isSharingScreen: true,
-                });
-                return updated;
-              }
-              return prev;
-            });
-
-            const existingRef = memory.peersRef.current.get(targetUserId);
-            if (existingRef && existingRef.screenStream?.id !== streamId) {
-              memory.peersRef.current.set(targetUserId, { 
-                ...existingRef, 
-                screenStream: incomingStream, 
-                isSharingScreen: true 
-              });
-            }
-
-            event.track.onended = () => {
-              memory.setPeers((prev) => {
-                const updated = new Map<string, PeerData>(prev);
-                const existing = updated.get(targetUserId);
-                if (existing) {
-                  updated.set(targetUserId, { ...existing, screenStream: null, isSharingScreen: false });
-                }
-                return updated;
-              });
-              const ref = memory.peersRef.current.get(targetUserId);
-              if (ref) {
-                memory.peersRef.current.set(targetUserId, { ...ref, screenStream: null, isSharingScreen: false });
-              }
-              videoStreamIds.delete(streamId);
-            };
+          if (streamIds?.cameraStreamId === incomingStreamId) {
+            source = "camera";
+          } else if (streamIds?.screenStreamId === incomingStreamId) {
+            source = "screen";
           } else {
-            // This is a camera video stream
-            memory.setPeers((prev) => {
-              const existing = prev.get(targetUserId);
-              const updated = new Map<string, PeerData>(prev);
-              updated.set(targetUserId, {
-                ...(existing || {
-                  userId: targetUserId,
-                  userName: targetUserName,
-                  stream: null,
-                  screenStream: null,
-                  connection: pc,
-                  isMuted: false,
-                  isSharingScreen: false,
-                  connectionState: pc.iceConnectionState,
-                  audioLevel: 0,
-                  isSpeaking: false,
-                }) as PeerData,
-                videoStream: incomingStream,
-                isVideoEnabled: true,
-              });
-              return updated;
-            });
-
-            const existingRef = memory.peersRef.current.get(targetUserId);
-            memory.peersRef.current.set(targetUserId, {
-              ...(existingRef || {
-                userId: targetUserId,
-                userName: targetUserName,
-                stream: null,
-                screenStream: null,
-                connection: pc,
-                isMuted: false,
-                isSharingScreen: false,
-                connectionState: pc.iceConnectionState,
-                audioLevel: 0,
-                isSpeaking: false,
-              }) as PeerData,
-              videoStream: incomingStream,
-              isVideoEnabled: true,
-            });
-
-            event.track.onended = () => {
-              memory.setPeers((prev) => {
-                const updated = new Map<string, PeerData>(prev);
-                const existing = updated.get(targetUserId);
-                if (existing) {
-                  updated.set(targetUserId, { ...existing, videoStream: null, isVideoEnabled: false });
-                }
-                return updated;
-              });
-              const ref = memory.peersRef.current.get(targetUserId);
-              if (ref) {
-                memory.peersRef.current.set(targetUserId, { ...ref, videoStream: null, isVideoEnabled: false });
-              }
-              videoStreamIds.delete(streamId);
-            };
+            // user-media-state has not arrived yet.
+            // Park the stream; useSignalingAgent will drain it when IDs arrive.
+            const peerPending =
+              memory.pendingVideoStreamsRef.current.get(targetUserId) ??
+              new Map<string, MediaStream>();
+            peerPending.set(incomingStreamId, incomingStream);
+            memory.pendingVideoStreamsRef.current.set(
+              targetUserId,
+              peerPending,
+            );
+            console.log(
+              `[WebRTC] Video track from ${targetUserName} parked pending ID (streamId=${incomingStreamId})`,
+            );
           }
+
+          if (source) {
+            applyVideoStream(targetUserId, incomingStream, source);
+          }
+
+          // Deterministic cleanup: when the track ends, we know the source label
+          event.track.onended = () => {
+            // Re-read source from peerStreamIdsRef at the time of cleanup
+            const ids =
+              memory.peerStreamIdsRef.current.get(targetUserId);
+            const finalSource: "camera" | "screen" =
+              ids?.cameraStreamId === incomingStreamId ? "camera" :
+              ids?.screenStreamId === incomingStreamId ? "screen" :
+              source ?? "camera"; // fallback to the source we found at ontrack time
+
+            applyVideoStream(targetUserId, null, finalSource);
+            console.log(
+              `[WebRTC] Track ended for ${targetUserName} (source=${finalSource})`,
+            );
+          };
         }
       };
 
+      // ── Negotiation ──────────────────────────────────────────────────────
       pc.onnegotiationneeded = async () => {
         const polite = memory.politeRef.current.get(targetUserId);
-        const alreadyNegotiated = memory.negotiationDoneRef.current.get(targetUserId);
+        const alreadyNegotiated =
+          memory.negotiationDoneRef.current.get(targetUserId);
 
         if (polite && !alreadyNegotiated) {
-          console.log(`[WebRTC] Skipping initial onnegotiationneeded for polite peer ${targetUserName}`);
+          console.log(
+            `[WebRTC] Skipping initial onnegotiationneeded for polite peer ${targetUserName}`,
+          );
           return;
         }
 
         try {
           memory.makingOfferRef.current.set(targetUserId, true);
-          
+
           const offer = await pc.createOffer();
           offer.sdp = setOpusLowLatency(offer.sdp || "");
           await pc.setLocalDescription(offer);
@@ -340,6 +343,7 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
         }
       };
 
+      // ── ICE connection state ──────────────────────────────────────────────
       pc.oniceconnectionstatechange = () => {
         const state = pc.iceConnectionState;
         console.log(`[ICE] ${targetUserName}: ${state}`);
@@ -352,30 +356,73 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
           const updated = new Map<string, PeerData>(prev);
           const existing = updated.get(targetUserId);
           if (existing) {
-            updated.set(targetUserId, { ...(existing as PeerData), connectionState: state });
+            updated.set(targetUserId, {
+              ...(existing as PeerData),
+              connectionState: state,
+            });
           }
           return updated;
         });
 
         if (state === "failed") {
+          console.warn(`[ICE] ${targetUserName}: failed — restarting ICE`);
           pc.restartIce();
         }
 
         if (state === "disconnected" || state === "closed") {
           setTimeout(() => {
-            if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "closed") {
+            if (
+              pc.iceConnectionState === "disconnected" ||
+              pc.iceConnectionState === "closed"
+            ) {
               cleanupPeer(targetUserId);
             }
           }, 5000);
         }
       };
 
+      // ── DTLS/transport connection state (Phase 4 resilience) ──────────────
+      // This catches transport-level failures that ICE state sometimes misses.
+      pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        console.log(`[DTLS] ${targetUserName}: ${state}`);
+
+        if (state === "failed") {
+          // Hard failure: attempt ICE restart; if still failed after 8s, tear down
+          console.warn(`[DTLS] ${targetUserName}: connection failed — restarting ICE`);
+          pc.restartIce();
+          setTimeout(() => {
+            if (pc.connectionState === "failed") {
+              console.error(`[DTLS] ${targetUserName}: unrecoverable — cleaning up`);
+              cleanupPeer(targetUserId);
+            }
+          }, 8000);
+        }
+
+        if (state === "disconnected") {
+          // Give 15s for transport to self-recover before forcing teardown
+          setTimeout(() => {
+            if (
+              pc.connectionState === "disconnected" ||
+              pc.connectionState === "failed" ||
+              pc.connectionState === "closed"
+            ) {
+              console.warn(`[DTLS] ${targetUserName}: recovery timeout — cleaning up`);
+              cleanupPeer(targetUserId);
+            }
+          }, 15000);
+        }
+      };
+
+
+      // ── Initial PeerData entry ────────────────────────────────────────────
       const peerData: PeerData = {
         userId: targetUserId,
         userName: targetUserName,
         stream: null,
+        cameraStream: null,
         screenStream: null,
-        videoStream: null,
+        presentation: EMPTY_PRESENTATION,
         connection: pc,
         isMuted: false,
         isSharingScreen: false,
@@ -394,10 +441,10 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
 
       return pc;
     },
-    [userId, userName, setupAudioAnalyser, cleanupPeer, memoryRef]
+    [userId, userName, setupAudioAnalyser, cleanupPeer, applyVideoStream, memoryRef],
   );
 
-  // Audio level polling + active speaker detection
+  // ── Audio level polling + active speaker detection ──────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       const memory = memoryRef.current;
@@ -406,7 +453,7 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
       let maxPeerId: string | null = null;
 
       memory.analyserNodesRef.current.forEach((analyser, peerId) => {
-        if (peerId === "local") return; // Skip local for active speaker
+        if (peerId === "local") return;
         const data = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
@@ -425,9 +472,17 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
           let updated: Map<string, PeerData> | null = null;
           updates.forEach(({ level, speaking }, peerId) => {
             const existing = prev.get(peerId);
-            if (existing && (Math.abs(existing.audioLevel - level) > 0.05 || existing.isSpeaking !== speaking)) {
+            if (
+              existing &&
+              (Math.abs(existing.audioLevel - level) > 0.05 ||
+                existing.isSpeaking !== speaking)
+            ) {
               if (!updated) updated = new Map<string, PeerData>(prev);
-              updated.set(peerId, { ...existing, audioLevel: level, isSpeaking: speaking });
+              updated.set(peerId, {
+                ...existing,
+                audioLevel: level,
+                isSpeaking: speaking,
+              });
             }
           });
           return updated || prev;
@@ -443,7 +498,6 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
           memoryRef.current.setActiveSpeakerId(maxPeerId);
         }, ACTIVE_SPEAKER_DEBOUNCE_MS);
       } else if (!maxPeerId && memory.activeSpeakerId) {
-        // Nobody speaking, clear after a longer delay
         if (activeSpeakerTimeoutRef.current) {
           clearTimeout(activeSpeakerTimeoutRef.current);
         }
@@ -465,6 +519,6 @@ export function usePeerAgent({ userId, userName }: UsePeerAgentOptions) {
     createPeerConnection,
     cleanupPeer,
     flushIceCandidates,
-    setupAudioAnalyser
+    setupAudioAnalyser,
   };
 }

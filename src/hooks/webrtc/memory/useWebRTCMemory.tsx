@@ -1,16 +1,20 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useMemo, ReactNode } from "react";
 import { Socket } from "socket.io-client";
 import {
-  PeerData, ChatMessage, ActivityEvent, VideoQuality,
+  PeerData, ChatMessage, ActivityEvent, VideoQuality, MediaPresentation,
   Toast, ToastType, ConnectionHealth, LayoutMode, PanelTab,
 } from "../types";
+import { computePresentation } from "../tools/presentationTools";
 
 export interface WebRTCMemoryContextValue {
   // ── Existing State ────────────────────────────────────────────────────────
   peers: Map<string, PeerData>;
   localStream: MediaStream | null;
-  localScreenStream: MediaStream | null;
+  /** Camera-only track stream (null when video off). Internal to presentation computation; read-only for UI/recording use. */
   localVideoStream: MediaStream | null;
+  /** Screen-share track stream (null when not sharing). Internal to presentation computation; read-only for UI/recording use. */
+  localScreenStream: MediaStream | null;
+  localPresentation: MediaPresentation;
   isMuted: boolean;
   isSharingScreen: boolean;
   isVideoEnabled: boolean;
@@ -48,6 +52,19 @@ export interface WebRTCMemoryContextValue {
   negotiationDoneRef: React.MutableRefObject<Map<string, boolean>>;
   politeRef: React.MutableRefObject<Map<string, boolean>>;
   ignoreOfferRef: React.MutableRefObject<Map<string, boolean>>;
+  senderMapRef: React.MutableRefObject<Map<string, { cameraSender?: RTCRtpSender, screenSender?: RTCRtpSender }>>;
+  /**
+   * Maps peerId → { cameraStreamId?, screenStreamId? }.
+   * Populated by useSignalingAgent when user-media-state arrives.
+   * Read by usePeerAgent.ontrack to classify incoming video streams.
+   */
+  peerStreamIdsRef: React.MutableRefObject<Map<string, { cameraStreamId?: string; screenStreamId?: string }>>;
+  /**
+   * Maps peerId → Map<streamId, MediaStream>.
+   * Holds video streams that arrived via ontrack BEFORE user-media-state
+   * delivered the matching stream IDs. useSignalingAgent drains this.
+   */
+  pendingVideoStreamsRef: React.MutableRefObject<Map<string, Map<string, MediaStream>>>;
 
   // ── Existing Setters ──────────────────────────────────────────────────────
   setPeers: React.Dispatch<React.SetStateAction<Map<string, PeerData>>>;
@@ -117,6 +134,11 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [isMutedByHost, setIsMutedByHost] = useState<boolean>(false);
   const [isVideoDisabledByHost, setIsVideoDisabledByHost] = useState<boolean>(false);
 
+  const localPresentation: MediaPresentation = useMemo(
+    () => computePresentation(localVideoStream, localScreenStream, !!localScreenStream),
+    [localScreenStream, localVideoStream],
+  );
+
   // ── Phase 1: New State ─────────────────────────────────────────────────────
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('grid');
   const [activePanelTab, setActivePanelTab] = useState<PanelTab>(null);
@@ -140,6 +162,9 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const negotiationDoneRef = useRef<Map<string, boolean>>(new Map());
   const politeRef = useRef<Map<string, boolean>>(new Map());
   const ignoreOfferRef = useRef<Map<string, boolean>>(new Map());
+  const senderMapRef = useRef<Map<string, { cameraSender?: RTCRtpSender, screenSender?: RTCRtpSender }>>(new Map());
+  const peerStreamIdsRef = useRef<Map<string, { cameraStreamId?: string; screenStreamId?: string }>>(new Map());
+  const pendingVideoStreamsRef = useRef<Map<string, Map<string, MediaStream>>>(new Map());
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const addActivity = useCallback((event: ActivityEvent) => {
@@ -170,7 +195,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
 
   const value: WebRTCMemoryContextValue = useMemo(() => ({
     // ── State ──────────────────────────────────────────────────────────────
-    peers, localStream, localScreenStream, localVideoStream,
+    peers, localStream, localVideoStream, localScreenStream, localPresentation,
     isMuted, isSharingScreen, isVideoEnabled, isConnected,
     chatMessages, activityLog, roomUserCount, activeSpeakerId,
     currentCameraId, videoQuality, userRole, isMutedByHost, isVideoDisabledByHost,
@@ -181,7 +206,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     socketRef, localStreamRef, screenStreamRef, videoStreamRef,
     peersRef, iceServersRef, audioContextRef, analyserNodesRef,
     iceCandidateBufferRef, makingOfferRef, negotiationDoneRef,
-    politeRef, ignoreOfferRef,
+    politeRef, ignoreOfferRef, senderMapRef,
+    peerStreamIdsRef, pendingVideoStreamsRef,
 
     // ── Setters ────────────────────────────────────────────────────────────
     setPeers, setLocalStream, setLocalScreenStream, setLocalVideoStream,
@@ -194,7 +220,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     // ── Helpers ────────────────────────────────────────────────────────────
     addActivity, addToast, removeToast, togglePanelTab,
   }), [
-    peers, localStream, localScreenStream, localVideoStream,
+    peers, localStream, localVideoStream, localScreenStream, localPresentation,
     isMuted, isSharingScreen, isVideoEnabled, isConnected,
     chatMessages, activityLog, roomUserCount, activeSpeakerId,
     currentCameraId, videoQuality, userRole, isMutedByHost, isVideoDisabledByHost,

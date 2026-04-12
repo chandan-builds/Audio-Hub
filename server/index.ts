@@ -225,8 +225,17 @@ io.on("connection", (socket: Socket) => {
     }
   );
 
-  // User status updates
-  socket.on("user-muted", (isMuted: boolean) => {
+  // User status updates — consolidated single media state payload.
+  // The server is a stateless relay: update local room model for isMuted /
+  // isSharingScreen, then broadcast the complete payload (including stream IDs)
+  // so receivers can classify tracks without guessing.
+  socket.on("user-media-state", (payload: {
+    isMuted: boolean;
+    isSharingScreen: boolean;
+    isVideoEnabled: boolean;
+    cameraStreamId?: string;
+    screenStreamId?: string;
+  }) => {
     const mapping = socketToUser.get(socket.id);
     if (!mapping) return;
 
@@ -235,43 +244,13 @@ io.on("connection", (socket: Socket) => {
 
     const user = room.users.get(mapping.userId);
     if (user) {
-      user.isMuted = isMuted;
-      socket.to(mapping.roomId).emit("user-status-changed", {
+      if (payload.isMuted !== undefined) user.isMuted = payload.isMuted;
+      if (payload.isSharingScreen !== undefined) user.isSharingScreen = payload.isSharingScreen;
+
+      // Relay full payload — stream IDs are opaque to the server
+      socket.to(mapping.roomId).emit("user-media-state", {
         userId: mapping.userId,
-        isMuted,
-      });
-    }
-  });
-
-  socket.on("user-screen-share", (isSharingScreen: boolean) => {
-    const mapping = socketToUser.get(socket.id);
-    if (!mapping) return;
-
-    const room = rooms.get(mapping.roomId);
-    if (!room) return;
-
-    const user = room.users.get(mapping.userId);
-    if (user) {
-      user.isSharingScreen = isSharingScreen;
-      socket.to(mapping.roomId).emit("user-status-changed", {
-        userId: mapping.userId,
-        isSharingScreen,
-      });
-    }
-  });
-
-  socket.on("user-video", (isVideoEnabled: boolean) => {
-    const mapping = socketToUser.get(socket.id);
-    if (!mapping) return;
-
-    const room = rooms.get(mapping.roomId);
-    if (!room) return;
-
-    const user = room.users.get(mapping.userId);
-    if (user) {
-      socket.to(mapping.roomId).emit("user-status-changed", {
-        userId: mapping.userId,
-        isVideoEnabled,
+        ...payload,
       });
     }
   });

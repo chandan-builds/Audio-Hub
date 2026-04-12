@@ -1,4 +1,6 @@
-export async function fetchTurnCredentials(serverUrl: string): Promise<RTCIceServer[]> {
+export async function fetchTurnCredentials(
+  serverUrl: string,
+): Promise<RTCIceServer[]> {
   try {
     const res = await fetch(`${serverUrl}/api/turn-credentials`);
     if (!res.ok) {

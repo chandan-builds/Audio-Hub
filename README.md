@@ -1,122 +1,273 @@
-# 🎧 Audio Hub: Protocol-Level Deep Dive
+# Audio Hub
 
-**Audio Hub** is a high-performance, real-time voice and video communication platform built with a custom-engineered **Agentic WebRTC Architecture**. Unlike generic video chat apps, Audio Hub is optimized for ultra-low latency, specifically targeting **Bluetooth audio performance** and **interactive collaboration** through advanced media control.
+Audio Hub is a React 19 real-time communication app with a Socket.IO signaling server, WebRTC peer connections, low-latency audio tuning, camera sharing, screen sharing, chat, host controls, recording, reconnect overlays, and a CSS-variable driven theme system.
 
-![Audio Hub Architecture](https://img.shields.io/badge/Architecture-Agentic%20Coordinator-blueviolet?style=for-the-badge) ![WebRTC Layer](https://img.shields.io/badge/WebRTC-Perfect%20Negotiation-blue?style=for-the-badge) ![Audio Engine](https://img.shields.io/badge/Audio-Bluetooth%20Optimized-green?style=for-the-badge) ![React](https://img.shields.io/badge/React-19.0-61dafb?style=for-the-badge&logo=react&logoColor=black)
+The current frontend is organized around a Coordinator-Agent-Memory WebRTC architecture. UI components consume lightweight presentation state, while RTC objects and sender references stay inside agent-level refs.
 
----
+## Current Architecture
 
-## 🧠 Core Philosophy: Agentic Architecture
+### WebRTC Coordinator
 
-The application is built on a "Coordinator-Agent-Memory" design pattern. This decouples the complex state of WebRTC from the UI and ensures high reliability in signaling.
+[src/hooks/webrtc/useWebRTCCoordinator.ts](src/hooks/webrtc/useWebRTCCoordinator.ts) composes the three runtime agents:
 
-### 1. `useWebRTCCoordinator` (The Brain)
-The central orchestrator that boots up specialized sub-agents. It manages the lifecycle and dependencies between signaling, media tracks, and peer connections.
+- `useSignalingAgent`: Socket.IO lifecycle, room events, SDP/ICE routing, chat, host controls, and remote media-state updates.
+- `usePeerAgent`: `RTCPeerConnection` creation, perfect negotiation, ICE candidate buffering, `ontrack` classification, audio analysis, and deterministic peer teardown.
+- `useMediaAgent`: local microphone/camera/screen lifecycle, `RTCRtpSender` ownership, track replacement, quality constraints, mute/video/screen controls, and device switching.
 
-### 2. The Agent Layer (The Workers)
-*   **`useSignalingAgent`**: Manages the Socket.io connection. It handles room logistics, message relaying, and the heavy lifting of routing WebRTC offers/answers based on `userId` to `socketId` mappings.
-*   **`usePeerAgent`**: The core WebRTC engine. Implements **Perfect Negotiation** (Polite vs. Impolite peers) to handle glare/collision scenarios. It manages a dynamic pool of `RTCPeerConnection` objects.
-*   **`useMediaAgent`**: Controls the hardware. It handles local stream acquisition, track replacement (`replaceTrack`), and specialized media constraints.
+### Stable Memory Layer
 
-### 3. `useWebRTCMemory` (The Truth)
-A centralized state store using a **Stable Ref Pattern**. Agents access the "Memory" via a stable `MutableRefObject`, allowing hooks to access the latest state (like the current Socket connection or local stream) without triggering re-renders or creating stale closure bugs.
+[src/hooks/webrtc/memory/useWebRTCMemory.tsx](src/hooks/webrtc/memory/useWebRTCMemory.tsx) provides:
 
----
+- Reactive UI state through `useWebRTCMemory()`.
+- Stable agent access through `useStableMemory()`.
+- Ref-owned RTC state such as `peersRef`, `senderMapRef`, ICE buffers, negotiation maps, and pending video stream maps.
+- A computed `localPresentation` value for rendering local camera/screen state.
 
-## 🛠️ Technical Implementation Details
+### Unified Media Presentation
 
-### 🎙️ Bluetooth-Native Audio Engine
-Audio Hub uses specialized **SDP Munging** to force browsers into a low-latency mode suitable for Bluetooth headsets (which usually suffer from 200ms+ latency in standard WebRTC).
-*   **Opus Munging**: Forces `ptime=10` (10ms frames instead of 20ms) and `stereo=0` to reduce bitrate and processing overhead.
-*   **BT Constraints**: Configures `EchoCancellation` as true but disables `NoiseSuppression` and `AutoGainControl` to shave off processing milliseconds.
-*   **CBR Mode**: Uses Constant Bitrate to prevent Bluetooth buffer fluctuations.
+The UI follows the merge rule: one user renders as one card.
 
-### 🖥️ High-Fidelity Screen Sharing
-The screen share implementation features a custom **Interaction Engine**:
-*   **Dynamic Focus**: Automatically promotes screen share streams to the primary layout.
-*   **Zoom & Pan**: Direct control via mouse-wheel zoom and drag-to-pan, allowing users to inspect small text or UI details in high resolution.
-*   **Resolution Switching**: Intelligent fallback between 720p/1080p based on detected network constraints.
+Camera and screen share are represented by a single `MediaPresentation` object:
 
-### 💬 Persistent Chat Pinning
-A first-of-its-kind chat system where users can "pin" messages.
-*   **Sticky Header**: Pinned messages animate from the chat flow into a dedicated global header.
-*   **Local Persistence**: Pinned state is mirrored in `localStorage`, ensuring the context remains even after a refresh.
+```ts
+export interface MediaPresentation {
+  primaryStream: MediaStream | null;
+  secondaryStream: MediaStream | null;
+  primarySource: "camera" | "screen" | "none";
+}
+```
 
----
+Rules:
 
-## 📡 Signaling Protocol & Events
+- Screen share is primary when active and available.
+- Camera becomes a secondary PiP stream during screen share.
+- Camera is primary when screen share is not active.
+- No separate screen tile is rendered for the same user.
 
-The signaling server (`server/index.ts`) acts as a "Stateless Relay" with minimal persistence.
+The pure helper lives in [src/hooks/webrtc/tools/presentationTools.ts](src/hooks/webrtc/tools/presentationTools.ts). `PeerCard` and focus views consume `presentation` instead of guessing from raw stream arrays.
 
-| Event | Direction | Purpose |
-| :--- | :--- | :--- |
-| `join-room` | Client → Server | Initiates room entry; assigns `host` or `participant` role. |
-| `room-joined-success` | Server → Client | Confirms role and current room permissions. |
-| `signal` | Bi-directional | Transports SDP offers, answers, and ICE candidates. |
-| `user-status-changed` | Client → Server | Notifies peers of Mic/Video/Screen share state. |
-| `host-mute-user` | Client → Server | (Host only) Remotely mutes a participant. |
-| `chat-message` | Client → Server | Relays messages with consistent timestamps. |
+### Deterministic Track Classification
 
----
+Remote video tracks are classified by stream IDs sent through the consolidated `user-media-state` event:
 
-## 📁 System Architecture Tree
+- `cameraStreamId`
+- `screenStreamId`
+
+If `ontrack` fires before the matching media-state payload arrives, `usePeerAgent` parks the stream in `pendingVideoStreamsRef`. `useSignalingAgent` drains that pending map once IDs arrive. This avoids track-order guessing and prevents duplicate or stale tiles.
+
+### Theme System
+
+Theme state is token-driven:
+
+- Bootstrap runs synchronously in [index.html](index.html) before React hydration.
+- `ThemeProvider` mirrors the mode onto `document.documentElement`.
+- Semantic `--ah-*` tokens are declared in [src/index.css](src/index.css).
+- Tailwind v4 exposes the tokens as utilities such as `bg-ah-bg`, `bg-ah-surface`, `border-ah-border`, and `text-ah-text`.
+
+There are still some legacy `dark:` utility classes in older components, but the active room shell, theme bootstrap, and PeerCard media surfaces have been moved toward semantic tokens.
+
+## Features
+
+- Voice chat with Bluetooth-oriented Opus SDP tuning.
+- Camera video with quality presets.
+- Screen sharing with merged camera PiP.
+- Consolidated media-state signaling.
+- Perfect negotiation for offer collision handling.
+- ICE candidate buffering and connection-state cleanup.
+- Active speaker detection via Web Audio analyzers.
+- Chat and activity log.
+- Host mute/video-disable controls.
+- Pre-join device checks and permission overlay.
+- Reconnection overlay and connection health monitoring.
+- Local recording controls.
+- Light/dark theme toggle with hydration-safe bootstrap.
+
+## Project Structure
 
 ```text
 Audio-Hub/
-├── src/
-│   ├── hooks/
-│   │   └── webrtc/
-│   │       ├── agents/        # Logical controllers (Signaling, Media, Peers)
-│   │       ├── memory/        # The Stable Ref state store & Context Provider
-│   │       ├── tools/         # SDP Mungers, Device tools, Math helpers
-│   │       └── types.ts       # Central source of truth for WebRTC interfaces
-│   ├── components/
-│   │   ├── room/              # The active meeting UI
-│   │   │   ├── PeerCard.tsx   # Individual stream renderers with waveform viz
-│   │   │   ├── ControlBar.tsx # Advanced toggle logic
-│   │   │   └── ChatPanel.tsx  # Message logic & Pinning system
-│   │   └── UI/                # Shared glassmorphic design units
-│   └── lib/                   # Utility functions (Shadcn components, tailwind-merge)
-└── server/
-    └── index.ts               # Node/Express Signaling + Socket.io Logic
+  components/ui/                 Shared shadcn-style UI primitives
+  lib/                           Shared utilities
+  server/
+    index.ts                     Express + Socket.IO signaling server
+    .env.example                 Backend environment template
+  src/
+    App.tsx                      App shell and routing state
+    main.tsx                     React entry point
+    index.css                    Tailwind v4 imports and theme tokens
+    components/
+      LobbyScreen.tsx            Legacy lobby entry
+      RoomScreen.tsx             Main meeting experience
+      PeerCard.tsx               Unified participant card renderer
+      ControlBar.tsx             Meeting controls
+      ChatPanel.tsx              Chat UI
+      ThemeProvider.tsx          Runtime theme provider
+      ThemeToggle.tsx            Theme switch
+      prejoin/                   Pre-join camera/mic screens
+      room/                      Room overlays, panels, modals
+      activity/                  Activity sidebar exports
+      chat/                      Chat module exports
+      devices/                   Device selector exports
+    hooks/
+      useWebRTC.ts               Public WebRTC exports
+      useConnectionMonitor.ts    Connection health monitor
+      useDeviceManager.ts        Device enumeration/selection
+      useKeyboardShortcuts.ts    Meeting shortcuts and push-to-talk
+      useRecordingAgent.ts       Local recording flow
+      useVisibilityPause.ts      Off-screen video pause helper
+      webrtc/
+        types.ts                 WebRTC/shared state types
+        useWebRTCCoordinator.ts  Agent composition hook
+        agents/
+          useMediaAgent.ts       Local media lifecycle and senders
+          usePeerAgent.ts        Peer connections and remote tracks
+          useSignalingAgent.ts   Socket.IO signaling and room state
+        memory/
+          useWebRTCMemory.tsx    Context state plus stable refs
+        tools/
+          deviceTools.ts         Device helpers
+          networkTools.ts        TURN credential fetching
+          presentationTools.ts   MediaPresentation computation
+          sdpTools.ts            Opus/Bluetooth SDP tuning
 ```
 
----
+## Signaling Protocol
 
-## 🚀 Environment Configuration
+The server is intentionally lightweight. It keeps room membership, maps `userId` to `socketId`, relays signaling payloads, and stores simple room metadata such as role and host-controlled flags.
 
-### Frontend (`.env`)
+### HTTP
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | Server health and room count. |
+| `GET /api/rooms` | Current rooms and user summaries. |
+| `GET /api/rooms/:roomId` | A single room's user list. |
+| `GET /api/turn-credentials` | STUN/TURN config for WebRTC. |
+
+### Socket.IO Events
+
+| Event | Direction | Purpose |
+| --- | --- | --- |
+| `join-room` | Client to server | Join or create a room and receive host/participant role. |
+| `room-users` | Server to client | Existing users sent to the joining client. |
+| `room-joined-success` | Server to client | Local role and host-control state. |
+| `user-connected` | Server to clients | New peer joined. |
+| `signal` | Bidirectional | SDP offer/answer and ICE candidate relay. |
+| `user-media-state` | Client to server to peers | Consolidated mute/video/screen state plus stream IDs. |
+| `user-media-control-updated` | Server to clients | Host mute/video disable state. |
+| `host-mute-user` | Host client to server | Request forced mute/unmute. |
+| `host-disable-video` | Host client to server | Request forced video disable/enable. |
+| `chat-message` | Client to server to peers | Room chat relay. |
+| `new-host-assigned` | Server to clients | Host transfer after host leaves. |
+| `room-user-count` | Server to clients | Current room count. |
+| `user-disconnected` | Server to clients | Peer left and should be cleaned up. |
+
+## Environment
+
+### Frontend
+
+Create `.env` from `.env.example`:
+
 ```env
-VITE_SOCKET_URL=https://your-server.com
-VITE_STUN_SERVER=stun:stun.l.google.com:19302
+VITE_SOCKET_URL=https://audio-hub-server.onrender.com
 ```
 
-### Backend (`server/.env`)
+For local development, use:
+
+```env
+VITE_SOCKET_URL=http://localhost:10000
+```
+
+### Backend
+
+Create `server/.env` from `server/.env.example`:
+
 ```env
 PORT=10000
-TURN_USERNAME=your_metered_ca_username
-TURN_CREDENTIAL=your_metered_ca_password
-CLIENT_URL=https://your-frontend.vercel.app
+CLIENT_URL=http://localhost:5173
+TURN_SERVER_URL=turn:a.relay.metered.ca:80
+TURN_SERVER_URL_TLS=turn:a.relay.metered.ca:443
+TURN_SERVER_URL_TCP=turn:a.relay.metered.ca:443?transport=tcp
+TURN_USERNAME=your_metered_username
+TURN_CREDENTIAL=your_metered_credential
 ```
 
----
+The server always includes Google STUN fallbacks and appends TURN servers from the environment.
 
-## 🔮 Roadmap for AI-Driven Upgrades
+## Development
 
-Use this section to ask your AI model for specific improvements:
+Install root dependencies:
 
-1.  **Bug Hunting**:
-    *   "Check `usePeerAgent.ts` for potential `ICE connection failed` retry loops."
-    *   "Analyze the `ONTRAK` logic in `usePeerAgent` for camera vs. screen share differentiation edge cases."
-2.  **Modifications**:
-    *   "Implement a **Recording Agent** that captures the `localStream` and `remoteStream` into a combined MediaRecorder."
-    *   "Add a **Noise Suppression Agent** using the `Web Audio API` to filter background hum."
-3.  **Upgrades**:
-    *   "Upgrade the signaling protocol to support **End-to-End Encryption (E2EE)** via `RTCRtpReceiver.insertableStreams`."
-    *   "Integrate **AI-Powered Subtitles** by piping the audio stream to a Whisper API agent."
+```bash
+npm install
+```
 
----
+Install server dependencies:
 
-## 👨‍💻 Engineering Credits
-Designed and engineered by **chandan-builds**. Built for the next generation of real-time collaboration.
-collaboration.
+```bash
+cd server
+npm install
+```
+
+Run frontend only:
+
+```bash
+npm run dev
+```
+
+Run server only:
+
+```bash
+npm run dev:server
+```
+
+Run both:
+
+```bash
+npm run dev:all
+```
+
+Build frontend:
+
+```bash
+npm run build
+```
+
+Type-check frontend:
+
+```bash
+npm run lint
+```
+
+Build server:
+
+```bash
+cd server
+npm run build
+```
+
+Start compiled server:
+
+```bash
+cd server
+npm start
+```
+
+## Operational Notes
+
+- WebRTC sender references are owned by `useMediaAgent` through `senderMapRef`.
+- `PeerData.connection` is an RTC object and should not be serialized.
+- UI should render `PeerData.presentation` and `localPresentation`, not raw camera/screen stream combinations.
+- Track ending, user leave, forced host video disable, and room teardown should clear streams immediately and recompute presentation.
+- The backend should stay a stateless relay for media negotiation. Media layout decisions belong on the client.
+- New UI surfaces should prefer semantic `--ah-*` tokens over hardcoded `dark:` color branches.
+
+## Deployment
+
+Frontend can be deployed as a Vite static app, for example to Vercel. The backend can be deployed as a Node service, for example to Render.
+
+Make sure:
+
+- `VITE_SOCKET_URL` points to the deployed backend.
+- `CLIENT_URL` is included in backend CORS origins.
+- TURN credentials are configured for production calls across restrictive networks.

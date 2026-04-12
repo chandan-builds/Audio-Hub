@@ -181,10 +181,8 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
   isLocal,
   localUserName,
   localStream,
-  localVideoStream,
+  localPresentation,
   isMuted,
-  isSharingScreen,
-  isVideoEnabled,
   volume,
   onClose,
 }: {
@@ -193,10 +191,9 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
   isLocal: boolean;
   localUserName?: string;
   localStream?: MediaStream | null;
-  localVideoStream?: MediaStream | null;
+  /** Pre-computed presentation for local user — required when isLocal=true. */
+  localPresentation?: import("@/src/hooks/webrtc/types").MediaPresentation | null;
   isMuted?: boolean;
-  isSharingScreen?: boolean;
-  isVideoEnabled?: boolean;
   volume: number;
   onClose: () => void;
 }) {
@@ -204,29 +201,51 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const name = isLocal ? localUserName || "You" : focusPeer.userName;
-  const cameraStream = isLocal ? localVideoStream : focusPeer.videoStream;
   const audioStream = isLocal ? localStream : focusPeer.stream;
-  const hasCameraVideo = !!cameraStream;
   const muted = isLocal ? isMuted : focusPeer.isMuted;
   const speaking = isLocal ? false : focusPeer.isSpeaking;
 
+  /**
+   * Presentation-driven: consume the single source-of-truth for what to show.
+   * Local user passes localPresentation; remote user uses peer.presentation.
+   */
+  const presentation = isLocal
+    ? (localPresentation ?? { primaryStream: null, secondaryStream: null, primarySource: "none" as const })
+    : focusPeer.presentation;
+
+  const { primaryStream, secondaryStream, primarySource } = presentation;
+  const hasPrimary = !!primaryStream;
+
+  // Bind primary video
   useEffect(() => {
-    if (videoRef.current && cameraStream) {
-      if (videoRef.current.srcObject !== cameraStream) {
-        videoRef.current.srcObject = cameraStream;
-      }
-    } else if (videoRef.current) {
-      videoRef.current.srcObject = null;
+    const el = videoRef.current;
+    if (!el) return;
+    if (primaryStream) {
+      if (el.srcObject !== primaryStream) el.srcObject = primaryStream;
+    } else {
+      el.srcObject = null;
     }
-  }, [cameraStream]);
+  }, [primaryStream]);
+
+  // Bind PiP (secondary)
+  const pipRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = pipRef.current;
+    if (!el) return;
+    if (secondaryStream) {
+      if (el.srcObject !== secondaryStream) el.srcObject = secondaryStream;
+    } else {
+      el.srcObject = null;
+    }
+  }, [secondaryStream]);
 
   useEffect(() => {
-    if (audioRef.current && audioStream && !isLocal) {
-      if (audioRef.current.srcObject !== audioStream) {
-        audioRef.current.srcObject = audioStream;
-        audioRef.current.volume = volume;
-        audioRef.current.play().catch(() => {});
-      }
+    const el = audioRef.current;
+    if (!el || isLocal || !audioStream) return;
+    if (el.srcObject !== audioStream) {
+      el.srcObject = audioStream;
+      el.volume = volume;
+      el.play().catch(() => {});
     }
   }, [audioStream, isLocal, volume]);
 
@@ -235,19 +254,20 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="mb-6 w-full rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-800/50 shadow-2xl shadow-black/10 dark:shadow-black/50 relative group"
+      className="mb-6 w-full rounded-2xl overflow-hidden bg-zinc-950 border border-ah-border shadow-2xl shadow-black/30 relative group"
     >
       {/* Large video view */}
       <div className="w-full aspect-video md:h-[55vh] relative bg-zinc-950 flex items-center justify-center">
-        {hasCameraVideo ? (
+        {hasPrimary ? (
           <video
             ref={videoRef}
             autoPlay
             muted={isLocal}
             playsInline
             className={cn(
-              "w-full h-full object-contain",
-              isLocal && "transform -scale-x-100"
+              "w-full h-full",
+              primarySource === "screen" ? "object-contain" : "object-cover",
+              isLocal && primarySource === "camera" && "transform -scale-x-100"
             )}
           />
         ) : (
@@ -258,6 +278,28 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
               </AvatarFallback>
             </Avatar>
             <p className="text-zinc-300 text-lg font-semibold">{name}</p>
+          </div>
+        )}
+
+        {/* PiP in focus view (e.g. camera-in-screen) */}
+        {secondaryStream && (
+          <div className="absolute bottom-3 right-3 w-36 aspect-video rounded-xl overflow-hidden border border-white/20 shadow-xl bg-black z-10">
+            <video
+              ref={pipRef}
+              autoPlay
+              muted={isLocal}
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
+        {/* Screen source badge */}
+        {primarySource === "screen" && (
+          <div className="absolute top-3 left-3 z-10">
+            <Badge variant="outline" className="text-[9px] border-cyan-500/40 text-cyan-300 bg-cyan-950/40 px-1.5">
+              SCREEN
+            </Badge>
           </div>
         )}
 
@@ -318,8 +360,8 @@ function VideoQualityBadge({ quality }: { quality: string }) {
     high: { icon: Signal, label: "HD", color: "text-emerald-500 border-emerald-900/40 bg-emerald-950/20" },
     medium: { icon: SignalHigh, label: "SD", color: "text-amber-500 border-amber-900/40 bg-amber-950/20" },
     low: { icon: SignalMedium, label: "LD", color: "text-red-500 border-red-900/40 bg-red-950/20" },
-    off: { icon: SignalLow, label: "OFF", color: "text-zinc-500 border-zinc-700/40 bg-zinc-950/20" },
-  }[quality] || { icon: Signal, label: "?", color: "text-zinc-500 border-zinc-700/40 bg-zinc-950/20" };
+    off: { icon: SignalLow, label: "OFF", color: "text-ah-text-muted border-ah-border bg-ah-surface" },
+  }[quality] || { icon: Signal, label: "?", color: "text-ah-text-muted border-ah-border bg-ah-surface" };
 
   const Icon = config.icon;
 
@@ -331,7 +373,7 @@ function VideoQualityBadge({ quality }: { quality: string }) {
           {config.label}
         </Badge>
       </TooltipTrigger>
-      <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+      <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
         Video quality: {quality} ({quality === 'high' ? '720p' : quality === 'medium' ? '480p' : quality === 'low' ? '240p' : 'off'})
       </TooltipContent>
     </Tooltip>
@@ -373,6 +415,7 @@ export function RoomScreen({
     localStream,
     localScreenStream,
     localVideoStream,
+    localPresentation,
     isMuted,
     isSharingScreen,
     isVideoEnabled,
@@ -429,9 +472,6 @@ export function RoomScreen({
 
   const peerArray = useMemo(() => Array.from(peers.entries()), [peers]);
 
-  // Find screen sharer for focus mode
-  const screenSharer = peerArray.find(([_, p]) => p.isSharingScreen && p.screenStream);
-
   // Auto-adjust video quality based on peer count
   useEffect(() => {
     const count = peerArray.length;
@@ -454,6 +494,12 @@ export function RoomScreen({
   const effectiveFocusId = useMemo(() => {
     if (focusedPeerId) return focusedPeerId; // Manual focus always wins
 
+    const remoteScreenSharer = peerArray.find(
+      ([_, p]) => p.presentation.primarySource === "screen",
+    );
+    if (remoteScreenSharer) return remoteScreenSharer[0];
+    if (localPresentation.primarySource === "screen") return "local";
+
     const remoteVideoPeers = peerArray.filter(([_, p]) => p.isVideoEnabled);
     const videoUsersCount = remoteVideoPeers.length + (isVideoEnabled ? 1 : 0);
     const speakingUsersCount = peerArray.filter(([_, p]) => p.isSpeaking).length;
@@ -475,7 +521,15 @@ export function RoomScreen({
     }
 
     return null;
-  }, [focusedPeerId, peerArray, activeSpeakerId, lastActiveSpeakerId, isVideoEnabled, peers]);
+  }, [
+    focusedPeerId,
+    peerArray,
+    activeSpeakerId,
+    lastActiveSpeakerId,
+    isVideoEnabled,
+    peers,
+    localPresentation.primarySource,
+  ]);
 
   // Clear manual focus if focused peer disconnects
   useEffect(() => {
@@ -497,8 +551,9 @@ export function RoomScreen({
         userId: "local",
         userName,
         stream: localStream,
+        cameraStream: localVideoStream,
         screenStream: localScreenStream,
-        videoStream: localVideoStream,
+        presentation: localPresentation,
         connection: null as any,
         isMuted,
         isSharingScreen,
@@ -512,19 +567,19 @@ export function RoomScreen({
   const isAnyVideoOn = isVideoEnabled || peerArray.some(([_, p]) => p.isVideoEnabled);
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-zinc-50 dark:bg-[#0a0a0a]">
+    <div className="flex flex-col h-[100dvh] bg-ah-bg">
       {/* Header */}
-      <header className="h-14 border-b border-zinc-200 dark:border-zinc-800/60 bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl flex items-center justify-between px-5 z-10 transition-colors duration-300">
+      <header className="h-14 border-b border-ah-border bg-ah-header-bg backdrop-blur-xl flex items-center justify-between px-5 z-10 transition-colors duration-300">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
-            <h1 className="font-bold tracking-tight text-zinc-900 dark:text-zinc-200 text-sm">Audio Hub</h1>
+            <Radio className="h-4 w-4 text-ah-text-muted" />
+            <h1 className="font-bold tracking-tight text-ah-text text-sm">Audio Hub</h1>
           </div>
-          <Separator orientation="vertical" className="h-4 bg-zinc-200 dark:bg-zinc-800/60" />
+          <Separator orientation="vertical" className="h-4 bg-ah-border" />
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="bg-zinc-100 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-mono text-[11px]"
+              className="bg-ah-surface border-ah-border text-ah-text-muted font-mono text-[11px]"
             >
               {roomId}
             </Badge>
@@ -532,16 +587,16 @@ export function RoomScreen({
               <TooltipTrigger asChild>
                 <button
                   onClick={handleCopyRoomId}
-                  className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
+                  className="p-1 hover:bg-ah-surface-raised rounded-md transition-colors"
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5 text-zinc-500" />
+                    <Copy className="h-3.5 w-3.5 text-ah-text-muted" />
                   )}
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
+              <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
                 Copy invite link
               </TooltipContent>
             </Tooltip>
@@ -552,7 +607,7 @@ export function RoomScreen({
           )} />
           {/* Recording indicator in header */}
           {recording.isRecording && (
-            <Badge variant="outline" className="gap-1 text-[10px] text-red-500 dark:text-red-400 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
+            <Badge variant="outline" className="gap-1 text-[10px] text-red-500 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
               <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
               REC
             </Badge>
@@ -562,28 +617,28 @@ export function RoomScreen({
         <div className="flex items-center gap-3">
           {/* User avatars */}
           <div className="flex -space-x-2 mr-2">
-            <Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950">
-              <AvatarFallback className="bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold">
+            <Avatar className="h-7 w-7 border-2 border-ah-surface">
+              <AvatarFallback className="bg-ah-surface-raised text-ah-text-muted text-[10px] font-bold">
                 {userName.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             {peerArray.slice(0, 3).map(([id, peer]) => (
-              <Avatar key={id} className="h-7 w-7 border-2 border-white dark:border-zinc-950">
-                <AvatarFallback className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-[10px]">
+              <Avatar key={id} className="h-7 w-7 border-2 border-ah-surface">
+                <AvatarFallback className="bg-ah-surface text-ah-text-muted text-[10px]">
                   {peer.userName.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ))}
             {peerArray.length > 3 && (
-              <Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950">
-                <AvatarFallback className="bg-zinc-100 dark:bg-zinc-900 text-[10px] text-zinc-500">
+              <Avatar className="h-7 w-7 border-2 border-ah-surface">
+                <AvatarFallback className="bg-ah-surface text-[10px] text-ah-text-faint">
                   +{peerArray.length - 3}
                 </AvatarFallback>
               </Avatar>
             )}
           </div>
 
-          <Badge className="bg-zinc-100 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/40 text-[10px] font-mono gap-1">
+          <Badge className="bg-ah-surface border-ah-border text-ah-text-muted text-[10px] font-mono gap-1">
             <Users className="h-3 w-3" />
             {roomUserCount}
           </Badge>
@@ -598,8 +653,8 @@ export function RoomScreen({
             size="icon"
             onClick={() => setChatOpen(!chatOpen)}
             className={cn(
-              "rounded-full h-8 w-8 border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-800 hidden xl:flex text-zinc-600 dark:text-zinc-400",
-              chatOpen && "bg-violet-100 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800/40 text-violet-600 dark:text-violet-400 hover:bg-violet-200 hover:text-violet-700 dark:hover:bg-violet-900/50"
+              "rounded-full h-8 w-8 border-ah-border bg-ah-surface hover:bg-ah-surface-raised hidden xl:flex text-ah-text-muted",
+              chatOpen && "bg-violet-100 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800/40 text-violet-600 dark:text-violet-400 hover:bg-violet-200"
             )}
           >
             <MessageSquare className="h-3.5 w-3.5" />
@@ -620,31 +675,17 @@ export function RoomScreen({
       <main className="flex-1 overflow-hidden flex">
         <div className="flex-1 p-6 overflow-y-auto">
           <div className="max-w-7xl mx-auto">
-            {/* Screen Share Focus Mode */}
-            {screenSharer && (
-              <ScreenShareFocus 
-                stream={screenSharer[1].screenStream} 
-                userName={screenSharer[1].userName} 
-              />
-            )}
-
-            {isSharingScreen && localScreenStream && !screenSharer && (
-              <ScreenShareFocus stream={localScreenStream} userName="Your" />
-            )}
-
             {/* ─── Active Speaker / Video Focus Mode ─── */}
             <AnimatePresence mode="popLayout">
-              {focusPeerData && effectiveFocusId && !screenSharer && (
+              {focusPeerData && effectiveFocusId && (
                 <SpeakerFocusView
                   focusPeer={focusPeerData}
                   focusPeerId={effectiveFocusId}
                   isLocal={effectiveFocusId === "local"}
                   localUserName={userName}
                   localStream={localStream}
-                  localVideoStream={localVideoStream}
+                  localPresentation={effectiveFocusId === "local" ? localPresentation : undefined}
                   isMuted={isMuted}
-                  isSharingScreen={isSharingScreen}
-                  isVideoEnabled={isVideoEnabled}
                   volume={globalVolume}
                   onClose={() => setFocusedPeerId(null)}
                 />
@@ -657,43 +698,46 @@ export function RoomScreen({
               transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
               className={cn(
               "grid gap-4",
-              (screenSharer || effectiveFocusId)
+              effectiveFocusId
                 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             )}>
               {/* Local user */}
-              <PeerCard
-                peer={{
-                  userId: "local",
-                  userName,
-                  stream: localStream,
-                  screenStream: localScreenStream,
-                  videoStream: localVideoStream,
-                  connection: null as any,
-                  isMuted,
-                  isSharingScreen,
-                  isVideoEnabled,
-                  connectionState: "connected",
-                  audioLevel: 0,
-                  isSpeaking: false,
-                }}
-                isLocal
-                localUserName={userName}
-                isMuted={isMuted}
-                isSharingScreen={isSharingScreen}
-                isVideoEnabled={isVideoEnabled}
-                localStream={localStream}
-                localVideoStream={localVideoStream}
-                volume={globalVolume}
-                onClickFocus={() => setFocusedPeerId("local")}
-                isFocusTarget={focusedPeerId === "local"}
-                localUserRole={userRole}
-                onHostAction={agents.triggerHostAction}
-              />
+              {effectiveFocusId !== "local" && (
+                <PeerCard
+                  peer={{
+                    userId: "local",
+                    userName,
+                    stream: localStream,
+                    cameraStream: localVideoStream,
+                    screenStream: localScreenStream,
+                    presentation: localPresentation,
+                    connection: null as any,
+                    isMuted,
+                    isSharingScreen,
+                    isVideoEnabled,
+                    connectionState: "connected",
+                    audioLevel: 0,
+                    isSpeaking: false,
+                  }}
+                  isLocal
+                  localUserName={userName}
+                  isMuted={isMuted}
+                  isSharingScreen={isSharingScreen}
+                  isVideoEnabled={isVideoEnabled}
+                  localStream={localStream}
+                  localPresentation={localPresentation}
+                  volume={globalVolume}
+                  onClickFocus={() => setFocusedPeerId("local")}
+                  isFocusTarget={focusedPeerId === "local"}
+                  localUserRole={userRole}
+                  onHostAction={agents.triggerHostAction}
+                />
+              )}
 
               {/* Remote peers */}
               <AnimatePresence>
-                {peerArray.map(([id, peer]) => (
+                {peerArray.filter(([id]) => id !== effectiveFocusId).map(([id, peer]) => (
                   <PeerCard 
                     key={id} 
                     peer={peer} 
@@ -710,9 +754,9 @@ export function RoomScreen({
               {/* Empty state */}
               {peerArray.length === 0 && (
                 <div className="col-span-full flex flex-col items-center justify-center py-16 opacity-30 dark:opacity-20">
-                  <Users className="h-14 w-14 mb-4 text-zinc-500" />
-                  <p className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Waiting for others...</p>
-                  <p className="text-sm font-mono mt-1 text-zinc-600 dark:text-zinc-400">Room: {roomId}</p>
+                  <Users className="h-14 w-14 mb-4 text-ah-text-muted" />
+                  <p className="text-lg font-medium text-ah-text">Waiting for others...</p>
+                  <p className="text-sm font-mono mt-1 text-ah-text-muted">Room: {roomId}</p>
                 </div>
               )}
             </motion.div>

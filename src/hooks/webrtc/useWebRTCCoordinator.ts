@@ -26,8 +26,12 @@ export interface UseWebRTCCoordinatorOptions {
  * This must be called from deeply within a component that is wrapped in `WebRTCProvider`.
  */
 export function useWebRTCCoordinator({
-  roomId, userId, userName, serverUrl,
-  preferredAudioInputId, startMuted,
+  roomId,
+  userId,
+  userName,
+  serverUrl,
+  preferredAudioInputId,
+  startMuted,
   onPermissionError,
 }: UseWebRTCCoordinatorOptions) {
   const peerAgent = usePeerAgent({ userId, userName });
