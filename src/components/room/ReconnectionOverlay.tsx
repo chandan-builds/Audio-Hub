@@ -1,17 +1,17 @@
 import { motion, AnimatePresence } from "motion/react";
-import { Wifi, WifiOff, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
+import { RefreshCw, AlertTriangle, Loader2, WifiOff } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import type { ConnectionHealth } from "@/src/hooks/useConnectionMonitor";
 
 interface ReconnectionOverlayProps {
   health: ConnectionHealth;
-  /** Called when user clicks "Retry Now" */
   onRetry: () => void;
-  /** Called when user gives up and leaves the room */
   onLeave: () => void;
 }
 
 const RETRY_COUNTDOWN_S = 10;
+const INITIAL_JOIN_GRACE_MS = 12000;
+const RECONNECT_GRACE_MS = 2500;
 
 function formatDuration(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -20,35 +20,40 @@ function formatDuration(ms: number): string {
   return `${m}m ${s % 60}s`;
 }
 
-export function ReconnectionOverlay({ health, onRetry, onLeave }: ReconnectionOverlayProps) {
+export function ReconnectionOverlay({
+  health,
+  onRetry,
+  onLeave,
+}: ReconnectionOverlayProps) {
   const [countdown, setCountdown] = useState(RETRY_COUNTDOWN_S);
   const [isRetrying, setIsRetrying] = useState(false);
+  const isFailed = health.state === "failed";
+  const graceMs = health.lastConnectedAt ? RECONNECT_GRACE_MS : INITIAL_JOIN_GRACE_MS;
+  const visible =
+    isFailed ||
+    (health.state === "reconnecting" && health.degradedForMs >= graceMs);
 
-  const visible = health.state === "reconnecting" || health.state === "failed";
-
-  // Countdown auto-retry
   useEffect(() => {
-    if (!visible || health.state === "failed") return;
+    if (!visible || isFailed) return;
 
     setCountdown(RETRY_COUNTDOWN_S);
     const id = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(id);
+      setCountdown((current) => {
+        if (current <= 1) {
           onRetry();
           return RETRY_COUNTDOWN_S;
         }
-        return c - 1;
+        return current - 1;
       });
     }, 1000);
 
     return () => clearInterval(id);
-  }, [visible, health.state, onRetry]);
+  }, [visible, isFailed, onRetry]);
 
-  // Reset retry spinner once health resolves
   useEffect(() => {
     if (health.state === "connected") {
       setIsRetrying(false);
+      setCountdown(RETRY_COUNTDOWN_S);
     }
   }, [health.state]);
 
@@ -58,8 +63,6 @@ export function ReconnectionOverlay({ health, onRetry, onLeave }: ReconnectionOv
     onRetry();
   }, [onRetry]);
 
-  const isFailed = health.state === "failed";
-
   return (
     <AnimatePresence>
       {visible && (
@@ -68,100 +71,93 @@ export function ReconnectionOverlay({ health, onRetry, onLeave }: ReconnectionOv
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="reconnection-overlay"
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[9000] flex items-center justify-center p-4"
           role="alert"
           aria-live="assertive"
-          aria-label="Connection lost, attempting to reconnect"
+          aria-label="Connection problem"
         >
-          {/* Blurred glass background */}
-          <div className="reconnection-backdrop" />
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" />
 
           <motion.div
-            className="reconnection-card"
-            initial={{ scale: 0.92, y: 20 }}
+            initial={{ scale: 0.96, y: 12 }}
             animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.92, y: 20 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
+            exit={{ scale: 0.96, y: 12 }}
+            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            className="relative z-10 flex w-full max-w-[420px] flex-col items-center gap-4 rounded-lg border border-ah-border bg-ah-surface p-6 text-center text-ah-text shadow-2xl shadow-black/25"
           >
-            {/* Icon */}
-            <div className={`reconnection-icon-wrap ${isFailed ? "failed" : "reconnecting"}`}>
+            <div
+              className={
+                isFailed
+                  ? "flex h-16 w-16 items-center justify-center rounded-full bg-red-500/12 text-red-500"
+                  : "flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/12 text-amber-500"
+              }
+            >
               <motion.div
                 animate={isFailed ? {} : { rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
               >
-                {isFailed ? (
-                  <AlertTriangle size={32} />
-                ) : (
-                  <WifiOff size={32} />
-                )}
+                {isFailed ? <AlertTriangle size={30} /> : <WifiOff size={30} />}
               </motion.div>
             </div>
 
-            {/* Title & message */}
-            <h2 className="reconnection-title">
-              {isFailed ? "Connection Failed" : "Connection Lost"}
-            </h2>
-            <p className="reconnection-message">
-              {isFailed
-                ? "We couldn't reconnect. This may be due to a network change or server issue."
-                : `Your connection dropped. Attempting to reconnect…`}
-            </p>
+            <div className="space-y-2">
+              <h2 className="m-0 text-xl font-bold text-ah-text">
+                {isFailed ? "Connection Failed" : "Connection Lost"}
+              </h2>
+              <p className="m-0 max-w-[34ch] text-sm leading-6 text-ah-text-muted">
+                {isFailed
+                  ? "We could not reconnect. Check your network, then retry."
+                  : "Your connection dropped. Attempting to reconnect..."}
+              </p>
+            </div>
 
-            {/* Degraded duration */}
             {health.degradedForMs > 3000 && (
-              <p className="reconnection-duration">
+              <p className="m-0 font-mono text-xs text-ah-text-faint">
                 Disconnected for {formatDuration(health.degradedForMs)}
               </p>
             )}
 
-            {/* Auto-retry countdown pill */}
             {!isFailed && (
-              <div className="reconnection-countdown">
-                <Loader2 size={14} className="reconnection-spinner" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-500">
+                <Loader2 size={14} className="animate-spin" />
                 <span>
-                  {isRetrying
-                    ? "Retrying…"
-                    : `Auto-retrying in ${countdown}s`}
+                  {isRetrying ? "Retrying..." : `Auto-retrying in ${countdown}s`}
                 </span>
               </div>
             )}
 
-            {/* Connection quality context — only when multi-peer failure */}
             {health.degradedPeerIds.length > 0 && (
-              <p className="reconnection-subtext">
-                {health.degradedPeerIds.length} peer{health.degradedPeerIds.length > 1 ? "s" : ""} unreachable
+              <p className="m-0 text-xs text-ah-text-faint">
+                {health.degradedPeerIds.length} peer
+                {health.degradedPeerIds.length > 1 ? "s" : ""} unreachable
               </p>
             )}
 
-            {/* Actions */}
-            <div className="reconnection-actions">
+            <div className="flex w-full flex-col gap-2">
               <button
-                id="reconnection-retry-btn"
-                className="reconnection-btn primary"
+                type="button"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ah-text px-4 py-2 text-sm font-semibold text-ah-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
                 onClick={handleRetry}
                 disabled={isRetrying}
-                aria-label="Retry connection now"
               >
                 <RefreshCw size={16} />
-                {isRetrying ? "Retrying…" : "Retry Now"}
+                {isRetrying ? "Retrying..." : "Retry Now"}
               </button>
               <button
-                id="reconnection-leave-btn"
-                className="reconnection-btn secondary"
+                type="button"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-ah-border bg-ah-surface-raised px-4 py-2 text-sm font-semibold text-ah-text transition hover:bg-ah-control-hover"
                 onClick={onLeave}
-                aria-label="Leave the room"
               >
                 Leave Room
               </button>
             </div>
 
-            {/* Network quality tips */}
             {isFailed && (
-              <ul className="reconnection-tips">
-                <li>Check your internet connection</li>
-                <li>Try disabling VPN or proxy</li>
-                <li>Move closer to your Wi-Fi router</li>
+              <ul className="m-0 flex w-full flex-col gap-1 pl-5 text-left text-xs leading-5 text-ah-text-muted">
+                <li>Check your internet connection.</li>
+                <li>Disable VPN or proxy if calls are blocked.</li>
+                <li>Refresh the room if the server restarted.</li>
               </ul>
             )}
           </motion.div>

@@ -4,6 +4,7 @@ dist/
 coverage/
 .DS_Store
 *.log
+vite-dev.err
 .env*
 !.env.example
 server/dist/

@@ -27,6 +27,7 @@ import { ReconnectionOverlay } from "./room/ReconnectionOverlay";
 import { PermissionOverlay } from "./room/PermissionOverlay";
 import type { PermissionError } from "./room/PermissionOverlay";
 import { ShortcutHelpModal } from "./room/ShortcutHelpModal";
+import { DraggablePip } from "./DraggablePip";
 
 /* ───────────────────────────────────────────────────
    Screen Share Focus — full-screen with zoom/pan
@@ -199,6 +200,7 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const videoBoundsRef = useRef<HTMLDivElement>(null);
 
   const name = isLocal ? localUserName || "You" : focusPeer.userName;
   const audioStream = isLocal ? localStream : focusPeer.stream;
@@ -227,18 +229,6 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
     }
   }, [primaryStream]);
 
-  // Bind PiP (secondary)
-  const pipRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const el = pipRef.current;
-    if (!el) return;
-    if (secondaryStream) {
-      if (el.srcObject !== secondaryStream) el.srcObject = secondaryStream;
-    } else {
-      el.srcObject = null;
-    }
-  }, [secondaryStream]);
-
   useEffect(() => {
     const el = audioRef.current;
     if (!el || isLocal || !audioStream) return;
@@ -254,10 +244,10 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="mb-6 w-full rounded-2xl overflow-hidden bg-zinc-950 border border-ah-border shadow-2xl shadow-black/30 relative group"
+      className="group relative mb-5 w-full overflow-hidden rounded-md border border-ah-border bg-[#050505] shadow-2xl shadow-black/20"
     >
       {/* Large video view */}
-      <div className="w-full aspect-video md:h-[55vh] relative bg-zinc-950 flex items-center justify-center">
+      <div ref={videoBoundsRef} className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-[#050505] md:h-[62vh]">
         {hasPrimary ? (
           <video
             ref={videoRef}
@@ -283,15 +273,13 @@ const SpeakerFocusView = memo(function SpeakerFocusView({
 
         {/* PiP in focus view (e.g. camera-in-screen) */}
         {secondaryStream && (
-          <div className="absolute bottom-3 right-3 w-36 aspect-video rounded-xl overflow-hidden border border-white/20 shadow-xl bg-black z-10">
-            <video
-              ref={pipRef}
-              autoPlay
-              muted={isLocal}
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          </div>
+          <DraggablePip
+            stream={secondaryStream}
+            muted={isLocal}
+            boundsRef={videoBoundsRef}
+            storageKey={`audio-hub-pip-focus-${isLocal ? "local" : focusPeerId}`}
+            className="w-36 sm:w-44"
+          />
         )}
 
         {/* Screen source badge */}
@@ -567,9 +555,9 @@ export function RoomScreen({
   const isAnyVideoOn = isVideoEnabled || peerArray.some(([_, p]) => p.isVideoEnabled);
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-ah-bg">
+    <div className="flex h-[100dvh] flex-col bg-ah-bg text-ah-text">
       {/* Header */}
-      <header className="h-14 border-b border-ah-border bg-ah-header-bg backdrop-blur-xl flex items-center justify-between px-5 z-10 transition-colors duration-300">
+      <header className="z-10 flex h-14 items-center justify-between border-b border-ah-border bg-ah-header-bg px-4 backdrop-blur-xl transition-colors duration-300 sm:px-5">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Radio className="h-4 w-4 text-ah-text-muted" />
@@ -616,7 +604,7 @@ export function RoomScreen({
 
         <div className="flex items-center gap-3">
           {/* User avatars */}
-          <div className="flex -space-x-2 mr-2">
+          <div className="mr-2 hidden -space-x-2 sm:flex">
             <Avatar className="h-7 w-7 border-2 border-ah-surface">
               <AvatarFallback className="bg-ah-surface-raised text-ah-text-muted text-[10px] font-bold">
                 {userName.substring(0, 2).toUpperCase()}
@@ -672,9 +660,9 @@ export function RoomScreen({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden flex">
-        <div className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-7xl mx-auto">
+      <main className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
+          <div className="mx-auto max-w-[1500px]">
             {/* ─── Active Speaker / Video Focus Mode ─── */}
             <AnimatePresence mode="popLayout">
               {focusPeerData && effectiveFocusId && (
@@ -697,11 +685,12 @@ export function RoomScreen({
               layout
               transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
               className={cn(
-              "grid gap-4",
-              effectiveFocusId
-                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-            )}>
+                "grid gap-3 sm:gap-4",
+                effectiveFocusId
+                  ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              )}
+            >
               {/* Local user */}
               {effectiveFocusId !== "local" && (
                 <PeerCard
@@ -753,7 +742,7 @@ export function RoomScreen({
 
               {/* Empty state */}
               {peerArray.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-16 opacity-30 dark:opacity-20">
+                <div className="col-span-full flex flex-col items-center justify-center py-16 opacity-45">
                   <Users className="h-14 w-14 mb-4 text-ah-text-muted" />
                   <p className="text-lg font-medium text-ah-text">Waiting for others...</p>
                   <p className="text-sm font-mono mt-1 text-ah-text-muted">Room: {roomId}</p>

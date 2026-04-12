@@ -8,6 +8,7 @@ import { Video, Maximize2, MicOff, Mic, VideoOff, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PeerData, MediaPresentation } from "@/src/hooks/webrtc/types";
 import { useVisibilityPause } from "@/src/hooks/useVisibilityPause";
+import { DraggablePip } from "./DraggablePip";
 
 interface PeerCardProps {
   key?: Key;
@@ -98,34 +99,6 @@ function SpeakingBars() {
 }
 
 /* ─── PiP Overlay — rendered when presentation has a secondaryStream ──────── */
-function PipOverlay({
-  stream,
-  muted,
-}: {
-  stream: MediaStream;
-  muted: boolean;
-}) {
-  const pipRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (pipRef.current && pipRef.current.srcObject !== stream) {
-      pipRef.current.srcObject = stream;
-    }
-  }, [stream]);
-
-  return (
-    <div className="absolute bottom-2 right-2 w-28 aspect-video rounded-lg overflow-hidden border border-white/20 shadow-lg z-10 bg-black">
-      <video
-        ref={pipRef}
-        autoPlay
-        muted={muted}
-        playsInline
-        className="w-full h-full object-cover"
-      />
-    </div>
-  );
-}
-
 /* ─── Main PeerCard ───────────────────────────────────────────────────────── */
 
 export const PeerCard = memo(function PeerCard({
@@ -146,6 +119,7 @@ export const PeerCard = memo(function PeerCard({
 }: PeerCardProps) {
   const primaryVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const videoBoundsRef = useRef<HTMLDivElement>(null);
 
   // ── Derive values from the correct source of truth ───────────────────────
   const name = isLocal ? localUserName || "You" : peer.userName;
@@ -237,8 +211,8 @@ export const PeerCard = memo(function PeerCard({
 
       <Card
         className={cn(
-          "bg-ah-surface/80 border border-ah-border overflow-hidden backdrop-blur-md transition-all duration-300",
-          "hover:border-ah-border-strong hover:shadow-lg hover:shadow-black/10 relative",
+          "relative overflow-hidden border border-ah-border bg-ah-surface shadow-sm transition-all duration-300",
+          "hover:border-ah-border-strong hover:shadow-lg hover:shadow-black/10",
           isLocal && "ring-1 ring-[color:var(--ah-focus-ring)]",
           isActiveSpeaker && "ring-2 ring-[color:var(--ah-focus-ring-strong)] border-[color:var(--ah-focus-ring-strong)] shadow-lg shadow-violet-500/10",
           speaking && !isActiveSpeaker && "ring-2 ring-[color:var(--ah-speaking-ring)] border-[color:var(--ah-speaking-ring)]"
@@ -248,7 +222,7 @@ export const PeerCard = memo(function PeerCard({
 
           {/* ── Primary Video Tile ──────────────────────────────────────── */}
           {hasPrimary ? (
-            <div className="w-full aspect-video bg-zinc-950 relative overflow-hidden">
+            <div ref={videoBoundsRef} className="relative aspect-video w-full overflow-hidden bg-[#050505]">
               <video
                 ref={primaryVideoRef}
                 autoPlay
@@ -263,7 +237,13 @@ export const PeerCard = memo(function PeerCard({
 
               {/* PiP overlay: camera-in-screen or screen-in-camera  */}
               {hasPip && secondaryStream && (
-                <PipOverlay stream={secondaryStream} muted={isLocal ?? false} />
+                <DraggablePip
+                  stream={secondaryStream}
+                  muted={isLocal ?? false}
+                  boundsRef={videoBoundsRef}
+                  storageKey={`audio-hub-pip-card-${isLocal ? "local" : peer.userId}`}
+                  className="w-24 sm:w-28"
+                />
               )}
 
               {/* Screen-share source indicator */}
