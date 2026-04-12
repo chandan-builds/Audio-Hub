@@ -65,8 +65,8 @@ export const CameraPreview = memo(function CameraPreview({
   return (
     <div
       className={cn(
-        "relative w-full aspect-video rounded-3xl overflow-hidden",
-        "bg-zinc-900 border border-zinc-800/60",
+        "relative w-full aspect-video rounded-[var(--ah-card-radius)] overflow-hidden",
+        "bg-ah-surface/30 backdrop-blur-xl border border-ah-glass-border shadow-inner font-sans",
         className
       )}
       aria-label="Camera preview"
@@ -97,16 +97,16 @@ export const CameraPreview = memo(function CameraPreview({
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-8 w-8 text-zinc-500 animate-spin" />
-                <p className="text-xs text-zinc-500">Starting camera…</p>
+                <Loader2 className="h-8 w-8 text-ah-text-muted animate-spin" />
+                <p className="text-xs text-ah-text-muted">Starting camera…</p>
               </>
             ) : (
               <>
                 {/* Avatar fallback */}
-                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-900/40">
+                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-ah-accent to-blue-600 flex items-center justify-center shadow-[0_0_20px_var(--ah-accent-glow)]">
                   <span className="text-2xl font-bold text-white">{getInitials(fallbackName)}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-zinc-500">
+                <div className="flex items-center gap-1.5 text-ah-text-muted">
                   <VideoOff className="h-3.5 w-3.5" />
                   <span className="text-xs">Camera off</span>
                 </div>
@@ -117,7 +117,12 @@ export const CameraPreview = memo(function CameraPreview({
       </AnimatePresence>
 
       {/* Subtle vignette overlay for depth */}
-      <div className="absolute inset-0 rounded-3xl pointer-events-none ring-1 ring-inset ring-white/5" />
+      <div className="absolute inset-0 rounded-[var(--ah-card-radius)] pointer-events-none ring-1 ring-inset ring-white/10 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.3)_100%)]" />
+
+      {/* Camera Preview Status Badge */}
+      <div className="absolute top-3 left-3 bg-black/40 backdrop-blur-md text-[10px] font-semibold text-white/80 px-2.5 py-1 rounded-md uppercase tracking-wider border border-white/10 pointer-events-none">
+        {hasVideo && !isLoading ? "Live Preview" : "Preview Status"}
+      </div>
     </div>
   );
 });

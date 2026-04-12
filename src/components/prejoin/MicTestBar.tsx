@@ -89,18 +89,21 @@ export const MicTestBar = memo(function MicTestBar({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isMuted ? (
-            <MicOff className="h-3.5 w-3.5 text-zinc-500" />
+            <MicOff className="h-3.5 w-3.5 text-ah-text-muted" />
           ) : (
             <Mic className={cn("h-3.5 w-3.5 transition-colors duration-200",
-              isActive ? "text-emerald-400" : "text-zinc-500"
+              isActive ? "text-ah-success" : "text-ah-text-muted"
             )} />
           )}
-          <span className="text-xs font-medium text-zinc-500">
+          <span className="text-xs font-medium text-ah-text-muted">
             {isMuted ? "Muted" : isActive ? "Microphone working" : "Speak to test…"}
           </span>
         </div>
         {isActive && !isMuted && (
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ah-success opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-ah-success"></span>
+          </div>
         )}
       </div>
 
@@ -119,16 +122,16 @@ export const MicTestBar = memo(function MicTestBar({
             className={cn(
               "flex-1 rounded-full transition-all duration-75 ease-out min-h-[3px]",
               isMuted
-                ? "bg-zinc-700"
+                ? "bg-ah-border"
                 : level > 0.6
-                  ? "bg-emerald-400"
+                  ? "bg-gradient-to-t from-ah-success to-emerald-300 shadow-[0_0_8px_var(--ah-success)]"
                   : level > 0.3
-                    ? "bg-emerald-500"
-                    : "bg-zinc-600"
+                    ? "bg-gradient-to-t from-ah-success/80 to-emerald-400/80"
+                    : "bg-ah-border/50 bg-gradient-to-t from-ah-border to-ah-border/50"
             )}
             style={{
-              height: `${Math.max(3, level * 32)}px`,
-              opacity: isMuted ? 0.3 : Math.max(0.25, level + 0.25),
+              height: `${Math.max(3, level * 36)}px`,
+              opacity: isMuted ? 0.3 : Math.max(0.3, level + 0.3),
             }}
           />
         ))}

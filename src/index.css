@@ -140,6 +140,18 @@
     --ah-focus-ring:    oklch(0.58 0.22 290 / 35%);
     --ah-focus-ring-strong: oklch(0.68 0.20 285 / 50%);
     --ah-speaking-ring: oklch(0.70 0.18 160 / 45%);
+
+    /* Premium Overhaul Tokens (Dark Mode) */
+    --ah-accent:           oklch(0.65 0.24 285);     /* violet-500 */
+    --ah-accent-hover:     oklch(0.58 0.24 285);     /* violet-600 */
+    --ah-accent-glow:      oklch(0.65 0.24 285 / 20%);
+    --ah-accent-subtle:    oklch(0.65 0.24 285 / 8%);
+    --ah-success:          oklch(0.72 0.19 160);     /* emerald-400 */
+    --ah-danger:           oklch(0.64 0.22 25);      /* red-500 */
+    --ah-danger-glow:      oklch(0.64 0.22 25 / 20%);
+    --ah-glass:            oklch(0.12 0 0 / 70%);    /* frosted glass bg */
+    --ah-glass-border:     oklch(1 0 0 / 8%);        /* glass border */
+    --ah-glass-hover:      oklch(0.18 0 0 / 80%);
 }
 
 /* ── Light-mode Audio Hub tokens ─────────────────────────────────────────── */
@@ -163,6 +175,18 @@
     --ah-focus-ring:    oklch(0.64 0.22 285 / 35%);
     --ah-focus-ring-strong: oklch(0.58 0.22 285 / 50%);
     --ah-speaking-ring: oklch(0.62 0.18 160 / 45%);
+
+    /* Premium Overhaul Tokens (Light Mode) */
+    --ah-accent:           oklch(0.58 0.24 285);     /* violet-600 */
+    --ah-accent-hover:     oklch(0.50 0.24 285);     /* violet-700 */
+    --ah-accent-glow:      oklch(0.58 0.24 285 / 20%);
+    --ah-accent-subtle:    oklch(0.58 0.24 285 / 8%);
+    --ah-success:          oklch(0.62 0.19 160);     /* emerald-600 */
+    --ah-danger:           oklch(0.54 0.22 25);      /* red-600 */
+    --ah-danger-glow:      oklch(0.54 0.22 25 / 20%);
+    --ah-glass:            oklch(0.98 0 0 / 70%);    /* frosted white bg */
+    --ah-glass-border:     oklch(0 0 0 / 8%);        /* subtle border */
+    --ah-glass-hover:      oklch(0.95 0 0 / 80%);
 }
 
 /* ── Tailwind v4 theme extension ─────────────────────────────────────────── */
@@ -183,6 +207,23 @@
     --color-ah-control-hover:   var(--ah-control-hover);
     --color-ah-selection-bg:    var(--ah-selection-bg);
     --color-ah-signal-off:      var(--ah-signal-off);
+    
+    /* Premium Overhaul Variables */
+    --color-ah-accent:          var(--ah-accent);
+    --color-ah-accent-hover:    var(--ah-accent-hover);
+    --color-ah-accent-glow:     var(--ah-accent-glow);
+    --color-ah-accent-subtle:   var(--ah-accent-subtle);
+    --color-ah-success:         var(--ah-success);
+    --color-ah-danger:          var(--ah-danger);
+    --color-ah-danger-glow:     var(--ah-danger-glow);
+    --color-ah-glass:           var(--ah-glass);
+    --color-ah-glass-border:    var(--ah-glass-border);
+    --color-ah-glass-hover:     var(--ah-glass-hover);
+
+    /* Animation Extensions */
+    --animate-mesh-shift: mesh-shift 15s ease-in-out infinite;
+    --animate-ring-pulse: ring-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    --animate-shimmer: shimmer 2s linear infinite;
 }
 
 @layer base {
@@ -203,4 +244,36 @@
     background-color: var(--ah-selection-bg);
     color: var(--ah-text);
   }
+}
+
+/* Premium Overhaul Animations & Utilities */
+@layer utilities {
+  .glass-panel {
+    @apply bg-ah-glass backdrop-blur-xl border border-ah-glass-border shadow-sm;
+  }
+  
+  .glass-panel-hover {
+    @apply hover:bg-ah-glass-hover transition-colors duration-300;
+  }
+  
+  .text-glow {
+    text-shadow: 0 0 10px var(--ah-accent-glow);
+  }
+}
+
+@keyframes mesh-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes ring-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
 }

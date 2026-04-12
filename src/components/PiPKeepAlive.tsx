@@ -249,15 +249,17 @@ export function PiPKeepAlive({ isMuted, onToggleMute }: PiPKeepAliveProps) {
       />
 
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handlePiP}
-            className="h-12 w-12 flex-shrink-0 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200"
-          >
-            <PictureInPicture className={`h-5 w-5 ${isPipActive ? "text-violet-500 dark:text-violet-400" : "text-zinc-600 dark:text-zinc-400"}`} />
-          </Button>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePiP}
+              className="h-12 w-12 flex-shrink-0 rounded-full border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-200"
+            />
+          }
+        >
+          <PictureInPicture className={`h-5 w-5 ${isPipActive ? "text-violet-500 dark:text-violet-400" : "text-zinc-600 dark:text-zinc-400"}`} />
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
           {isPipActive ? "Stop Background Mode" : "Background Mode (PiP)"}

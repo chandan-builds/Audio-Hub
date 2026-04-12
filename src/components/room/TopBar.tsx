@@ -23,11 +23,9 @@ function ConnectionBadge({ isConnected, peerCount }: { isConnected: boolean; pee
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="outline" className={cn("gap-1 text-[10px] cursor-default", color)}>
-          <Icon className="h-3 w-3" />
-          {label}
-        </Badge>
+      <TooltipTrigger className={cn("inline-flex items-center rounded-md border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2", "border-border", "gap-1 text-[10px] cursor-default", color)}>
+        <Icon className="h-3 w-3" />
+        {label}
       </TooltipTrigger>
       <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
         {isConnected ? "Signaling connected" : "Trying to reconnect…"}
@@ -107,25 +105,23 @@ export function TopBar({
           </Badge>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                id="topbar-copy-link"
-                onClick={handleCopy}
-                aria-label="Copy invite link"
-                className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors shrink-0"
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {copied ? (
-                    <motion.div key="check" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
-                      <Check className="h-3.5 w-3.5 text-emerald-500" />
-                    </motion.div>
-                  ) : (
-                    <motion.div key="copy" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
-                      <Copy className="h-3.5 w-3.5 text-zinc-500" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </button>
+            <TooltipTrigger
+              id="topbar-copy-link"
+              onClick={handleCopy}
+              aria-label="Copy invite link"
+              className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors shrink-0"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {copied ? (
+                  <motion.div key="check" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="copy" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
+                    <Copy className="h-3.5 w-3.5 text-zinc-500" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </TooltipTrigger>
             <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
               Copy invite link
@@ -151,12 +147,11 @@ export function TopBar({
         {/* Avatar stack */}
         <div className="flex -space-x-2">
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950 cursor-default">
-                <AvatarFallback className="bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 text-[10px] font-bold">
-                  {userName.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+            {/* Base UI TooltipTrigger render prop to change element */}
+            <TooltipTrigger render={<Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950 cursor-default" />}>
+              <AvatarFallback className="bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 text-[10px] font-bold">
+                {userName.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
             </TooltipTrigger>
             <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
               {userName} (You)
@@ -166,19 +161,17 @@ export function TopBar({
           {peerArray.slice(0, 3).map(([id, peer]) => (
             <React.Fragment key={id}>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950 cursor-default">
-                    <AvatarFallback
-                      className={cn(
-                        "text-[10px] font-medium",
-                        peer.connectionState === "connected"
-                          ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                          : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                      )}
-                    >
-                      {peer.userName.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                <TooltipTrigger render={<Avatar className="h-7 w-7 border-2 border-white dark:border-zinc-950 cursor-default" />}>
+                  <AvatarFallback
+                    className={cn(
+                      "text-[10px] font-medium",
+                      peer.connectionState === "connected"
+                        ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                        : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                    )}
+                  >
+                    {peer.userName.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
                 </TooltipTrigger>
                 <TooltipContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-300">
                   {peer.userName}

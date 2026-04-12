@@ -2,26 +2,29 @@ import { useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Mic, MicOff, Video, VideoOff, Wifi, WifiOff, AlertTriangle,
-  Crown, UserRound, Volume2, VolumeX, ShieldOff,
+  Crown, Users, Volume2, VolumeX, ShieldOff,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { PeerData } from "@/src/hooks/useWebRTC";
 
-/* ─── Connection quality icon ───────────────────────────── */
-function ConnectionIcon({ state }: { state: RTCIceConnectionState }) {
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
+function nameHue(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
+}
+
+/* ─── Connection quality ───────────────────────────────────────────────────── */
+function ConnectionDot({ state }: { state: RTCIceConnectionState }) {
   if (state === "connected" || state === "completed")
-    return <Wifi className="h-3 w-3 text-emerald-500" />;
+    return <Wifi className="h-3 w-3 text-emerald-400" />;
   if (state === "disconnected" || state === "failed")
     return <WifiOff className="h-3 w-3 text-red-400" />;
   return <AlertTriangle className="h-3 w-3 text-amber-400 animate-pulse" />;
 }
 
-/* ─── Speaking waveform ─────────────────────────────────── */
+/* ─── Speaking waveform ────────────────────────────────────────────────────── */
 function SpeakingWave() {
   return (
     <div className="flex gap-[2px] items-end h-3.5 shrink-0">
@@ -37,28 +40,58 @@ function SpeakingWave() {
   );
 }
 
-/* ─── Per-participant row ───────────────────────────────── */
+/* ─── Participant avatar ───────────────────────────────────────────────────── */
+function ParticipantAvatar({
+  name, isLocal, isSpeaking, isHost,
+}: { name: string; isLocal: boolean; isSpeaking: boolean; isHost: boolean }) {
+  const hue = isLocal ? 265 : nameHue(name);
+  return (
+    <div className="relative shrink-0">
+      {/* Speaking ring */}
+      {isSpeaking && (
+        <motion.div
+          className="absolute inset-0 rounded-xl"
+          style={{ boxShadow: `0 0 0 2px oklch(0.65 0.18 ${hue})` }}
+          animate={{ boxShadow: [`0 0 0 2px oklch(0.65 0.18 ${hue}) `, `0 0 0 4px oklch(0.55 0.18 ${hue} / 0.3)`, `0 0 0 2px oklch(0.65 0.18 ${hue})`] }}
+          transition={{ duration: 0.8, repeat: Infinity }}
+        />
+      )}
+      <div
+        className="h-9 w-9 rounded-xl flex items-center justify-center text-[11px] font-bold text-white shadow-sm"
+        style={{ background: `oklch(0.45 0.18 ${hue})` }}
+      >
+        {name.substring(0, 2).toUpperCase()}
+      </div>
+      {/* Host crown */}
+      {isHost && (
+        <div className="absolute -top-1.5 -right-1.5 bg-amber-400 rounded-full p-0.5 shadow-sm">
+          <Crown className="h-2 w-2 text-amber-900" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Participant row ──────────────────────────────────────────────────────── */
 interface ParticipantRowProps {
-  userId:     string;
-  userName:   string;
-  isLocal:    boolean;
-  isHost:     boolean;
-  isMuted:    boolean;
+  userId: string;
+  userName: string;
+  isLocal: boolean;
+  isHost: boolean;
+  isMuted: boolean;
   isVideoEnabled: boolean;
   isSpeaking: boolean;
   connectionState: RTCIceConnectionState;
   localUserRole?: "host" | "participant";
-  onMuteToggle?:   () => void;
-  onVideoToggle?:  () => void;
-  onKick?:         () => void;
+  onMuteToggle?: () => void;
+  onKick?: () => void;
 }
 
 function ParticipantRow({
   userId, userName, isLocal, isHost, isMuted, isVideoEnabled,
   isSpeaking, connectionState, localUserRole,
-  onMuteToggle, onVideoToggle, onKick,
+  onMuteToggle, onKick,
 }: ParticipantRowProps) {
-  const initials = userName.substring(0, 2).toUpperCase();
   const isLocalHost = localUserRole === "host";
 
   return (
@@ -67,68 +100,50 @@ function ParticipantRow({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.18 }}
       className={cn(
-        "flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors",
-        "hover:bg-zinc-100/80 dark:hover:bg-zinc-800/40",
-        isSpeaking && "bg-emerald-50/60 dark:bg-emerald-950/20"
+        "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150",
+        "hover:bg-ah-glass border border-transparent hover:border-ah-glass-border",
+        isSpeaking && "bg-emerald-500/5 border-emerald-500/20"
       )}
     >
-      {/* Avatar */}
-      <div className="relative shrink-0">
-        <Avatar className={cn(
-          "h-8 w-8 border-2 transition-colors",
-          isSpeaking
-            ? "border-emerald-400 shadow-sm shadow-emerald-400/30"
-            : "border-transparent"
-        )}>
-          <AvatarFallback className={cn(
-            "text-[11px] font-bold",
-            isLocal
-              ? "bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300"
-              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-          )}>
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        {isHost && (
-          <div className="absolute -top-1 -right-1 bg-amber-400 rounded-full p-0.5">
-            <Crown className="h-2 w-2 text-amber-900" />
-          </div>
-        )}
-      </div>
+      <ParticipantAvatar name={userName} isLocal={isLocal} isSpeaking={isSpeaking} isHost={isHost} />
 
-      {/* Name + badges */}
+      {/* Name section */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           {isSpeaking && <SpeakingWave />}
-          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+          <span className={cn(
+            "text-[13px] font-medium truncate",
+            isLocal ? "text-ah-text" : "text-ah-text"
+          )}>
             {userName}
           </span>
+        </div>
+        <div className="flex items-center gap-1 mt-0.5">
           {isLocal && (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 border-violet-400/40 text-violet-500 shrink-0">
+            <span className="text-[9px] px-1 py-px border border-violet-400/30 text-violet-400 rounded font-semibold uppercase tracking-wide">
               You
-            </Badge>
+            </span>
           )}
           {isHost && (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-400/40 text-amber-500 shrink-0">
+            <span className="text-[9px] px-1 py-px border border-amber-400/30 text-amber-400 rounded font-semibold uppercase tracking-wide">
               Host
-            </Badge>
+            </span>
           )}
         </div>
       </div>
 
       {/* Status icons */}
       <div className="flex items-center gap-1.5 shrink-0">
-        <ConnectionIcon state={connectionState} />
-
+        <ConnectionDot state={connectionState} />
         {isMuted
           ? <MicOff className="h-3.5 w-3.5 text-red-400" />
-          : <Mic className="h-3.5 w-3.5 text-emerald-500" />
+          : <Mic className="h-3.5 w-3.5 text-emerald-400" />
         }
-
         {isVideoEnabled
-          ? <Video className="h-3.5 w-3.5 text-violet-500" />
-          : <VideoOff className="h-3.5 w-3.5 text-zinc-400" />
+          ? <Video className="h-3.5 w-3.5 text-violet-400" />
+          : <VideoOff className="h-3.5 w-3.5 text-ah-text-subtle" />
         }
       </div>
 
@@ -139,13 +154,13 @@ function ParticipantRow({
             <TooltipTrigger asChild>
               <button
                 onClick={onMuteToggle}
-                aria-label={isMuted ? "Unmute participant" : "Mute participant"}
-                className="p-1 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"
+                aria-label={isMuted ? "Allow unmute" : "Mute participant"}
+                className="p-1.5 rounded-lg text-ah-text-muted hover:text-ah-text hover:bg-ah-glass transition-all"
               >
                 {isMuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="bg-zinc-900 border-zinc-700 text-zinc-200 text-[11px]">
+            <TooltipContent side="top" className="bg-ah-surface/95 border-ah-glass-border text-ah-text text-[11px] backdrop-blur-xl">
               {isMuted ? "Allow unmute" : "Mute"}
             </TooltipContent>
           </Tooltip>
@@ -155,12 +170,12 @@ function ParticipantRow({
               <button
                 onClick={onKick}
                 aria-label="Remove participant"
-                className="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors text-zinc-400 hover:text-red-500"
+                className="p-1.5 rounded-lg text-ah-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all"
               >
                 <ShieldOff className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="bg-zinc-900 border-zinc-700 text-zinc-200 text-[11px]">
+            <TooltipContent side="top" className="bg-ah-surface/95 border-ah-glass-border text-ah-text text-[11px] backdrop-blur-xl">
               Remove from room
             </TooltipContent>
           </Tooltip>
@@ -170,65 +185,65 @@ function ParticipantRow({
   );
 }
 
-/* ─── Props ─────────────────────────────────────────────── */
+/* ─── Props ────────────────────────────────────────────────────────────────── */
 interface ParticipantsPanelProps {
-  peers:          Map<string, PeerData>;
-  localUserId:    string;
-  localUserName:  string;
-  localIsMuted:   boolean;
-  localIsVideo:   boolean;
-  userRole:       "host" | "participant";
-  onHostAction:   (action: string, targetUserId: string) => void;
+  peers: Map<string, PeerData>;
+  localUserId: string;
+  localUserName: string;
+  localIsMuted: boolean;
+  localIsVideo: boolean;
+  userRole: "host" | "participant";
+  onHostAction: (action: string, targetUserId: string) => void;
 }
 
+/* ─── Panel ────────────────────────────────────────────────────────────────── */
 export function ParticipantsPanel({
   peers, localUserId, localUserName,
   localIsMuted, localIsVideo, userRole, onHostAction,
 }: ParticipantsPanelProps) {
   const peerArray = useMemo(() => Array.from(peers.entries()), [peers]);
-  const total     = peerArray.length + 1; // +1 for local
+  const total = peerArray.length + 1;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800/60 shrink-0">
+      {/* ── Header ── */}
+      <div className="px-4 py-3 border-b border-ah-glass-border flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <UserRound className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Participants</span>
-          <Badge className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/40 text-[10px] font-mono">
+          <Users className="h-4 w-4 text-violet-400" />
+          <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-ah-text-muted">
+            Participants
+          </span>
+          <span className="text-[10px] font-mono text-ah-text-subtle bg-ah-surface-raised px-1.5 py-0.5 rounded-full border border-ah-border">
             {total}
-          </Badge>
+          </span>
         </div>
 
-        {/* Mute all (host only) */}
+        {/* Mute All — host only */}
         {userRole === "host" && peerArray.length > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={() => peerArray.forEach(([id]) => onHostAction("mute", id))}
-                className="h-7 text-[11px] border-red-200 dark:border-red-900/40 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                className="flex items-center gap-1 h-6 px-2 text-[10px] rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors font-semibold"
               >
-                <VolumeX className="h-3 w-3 mr-1" />
+                <VolumeX className="h-3 w-3" />
                 Mute All
-              </Button>
+              </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="bg-zinc-900 border-zinc-700 text-zinc-200 text-[11px]">
+            <TooltipContent side="bottom" className="bg-ah-surface/95 border-ah-glass-border text-ah-text text-[11px] backdrop-blur-xl">
               Mute all participants
             </TooltipContent>
           </Tooltip>
         )}
       </div>
 
-      {/* List */}
+      {/* ── List ── */}
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-        {/* In this call label */}
-        <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
-          In this call ({total})
+        <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-ah-text-subtle">
+          In this call
         </p>
 
-        {/* Local user (always first) */}
+        {/* Local (always first) */}
         <ParticipantRow
           userId={localUserId}
           userName={localUserName}
@@ -241,35 +256,39 @@ export function ParticipantsPanel({
           localUserRole={userRole}
         />
 
-        <Separator className="my-1 bg-zinc-100 dark:bg-zinc-800/60" />
+        <div className="h-px bg-ah-border mx-3 my-1.5" />
 
         {/* Remote peers */}
         <AnimatePresence initial={false}>
           {peerArray.map(([id, peer]) => (
-            <div key={id}>
-              <ParticipantRow
-                userId={id}
-                userName={peer.userName}
-                isLocal={false}
-                isHost={peer.role === "host"}
-                isMuted={peer.isMuted}
-                isVideoEnabled={peer.isVideoEnabled}
-                isSpeaking={peer.isSpeaking}
-                connectionState={peer.connectionState}
-                localUserRole={userRole}
-                onMuteToggle={() => onHostAction("mute", id)}
-                onKick={() => onHostAction("kick", id)}
-              />
-            </div>
+            <ParticipantRow
+              key={id}
+              userId={id}
+              userName={peer.userName}
+              isLocal={false}
+              isHost={peer.role === "host"}
+              isMuted={peer.isMuted}
+              isVideoEnabled={peer.isVideoEnabled}
+              isSpeaking={peer.isSpeaking}
+              connectionState={peer.connectionState}
+              localUserRole={userRole}
+              onMuteToggle={() => onHostAction("mute", id)}
+              onKick={() => onHostAction("kick", id)}
+            />
           ))}
         </AnimatePresence>
 
         {/* Empty state */}
         {peerArray.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-10 opacity-40">
-            <UserRound className="h-8 w-8 mb-2 text-zinc-500" />
-            <p className="text-xs text-zinc-500">Waiting for others to join…</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-12 opacity-40"
+          >
+            <Users className="h-10 w-10 text-ah-text-subtle mb-3" />
+            <p className="text-xs text-ah-text-muted">Waiting for others to join…</p>
+            <p className="text-[11px] text-ah-text-subtle mt-1">Share the room link to invite people</p>
+          </motion.div>
         )}
       </div>
     </div>

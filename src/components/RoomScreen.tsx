@@ -13,9 +13,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ThemeToggle } from "./ThemeToggle";
 import { PeerCard } from "./PeerCard";
 import { ControlBar } from "./ControlBar";
-import { ActivitySidebar } from "./ActivitySidebar";
-import { ChatPanel } from "./ChatPanel";
 import { DeviceSelector } from "./DeviceSelector";
+import { TopBar } from "./room/TopBar";
+import { RightPanel } from "./room/RightPanel";
+import type { PanelTab } from "@/src/hooks/webrtc/types";
 import { SettingsModal } from "./room/SettingsModal";
 import { useWebRTCMemory, useWebRTCCoordinator } from "@/src/hooks/useWebRTC";
 import { useRecordingAgent } from "@/src/hooks/useRecordingAgent";
@@ -355,11 +356,9 @@ function VideoQualityBadge({ quality }: { quality: string }) {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="outline" className={cn("text-[9px] font-mono gap-1 px-1.5", config.color)}>
-          <Icon className="h-3 w-3" />
-          {config.label}
-        </Badge>
+      <TooltipTrigger render={<Badge variant="outline" className={cn("text-[9px] font-mono gap-1 px-1.5", config.color)} />}>
+        <Icon className="h-3 w-3" />
+        {config.label}
       </TooltipTrigger>
       <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
         Video quality: {quality} ({quality === 'high' ? '720p' : quality === 'medium' ? '480p' : quality === 'low' ? '240p' : 'off'})
@@ -390,7 +389,7 @@ export function RoomScreen({
   onLeave,
   joinPrefs,
 }: RoomScreenProps) {
-  const [chatOpen, setChatOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PanelTab>(null);
   const [deviceSelectorOpen, setDeviceSelectorOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -439,7 +438,7 @@ export function RoomScreen({
     { key: "m", label: "Toggle Mute",        action: agents.toggleMute },
     { key: "v", label: "Toggle Camera",       action: agents.toggleVideo },
     { key: "s", label: "Toggle Screen Share", action: agents.toggleScreenShare },
-    { key: "c", label: "Toggle Chat",          action: () => setChatOpen(prev => !prev) },
+    { key: "c", label: "Toggle Chat",          action: () => setActiveTab(prev => prev === "chat" ? null : "chat") },
     { key: "p", label: "Push-to-Talk (hold Space)", action: () => {} },
   ], [agents]);
 
@@ -556,108 +555,18 @@ export function RoomScreen({
 
   return (
     <div className="flex h-[100dvh] flex-col bg-ah-bg text-ah-text">
-      {/* Header */}
-      <header className="z-10 flex h-14 items-center justify-between border-b border-ah-border bg-ah-header-bg px-4 backdrop-blur-xl transition-colors duration-300 sm:px-5">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-ah-text-muted" />
-            <h1 className="font-bold tracking-tight text-ah-text text-sm">Audio Hub</h1>
-          </div>
-          <Separator orientation="vertical" className="h-4 bg-ah-border" />
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="bg-ah-surface border-ah-border text-ah-text-muted font-mono text-[11px]"
-            >
-              {roomId}
-            </Badge>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={handleCopyRoomId}
-                  className="p-1 hover:bg-ah-surface-raised rounded-md transition-colors"
-                >
-                  {copied ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5 text-ah-text-muted" />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="bg-ah-surface border-ah-border text-ah-text">
-                Copy invite link
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <div className={cn(
-            "h-2 w-2 rounded-full",
-            isConnected ? "bg-emerald-400" : "bg-amber-400 animate-pulse"
-          )} />
-          {/* Recording indicator in header */}
-          {recording.isRecording && (
-            <Badge variant="outline" className="gap-1 text-[10px] text-red-500 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-              REC
-            </Badge>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* User avatars */}
-          <div className="mr-2 hidden -space-x-2 sm:flex">
-            <Avatar className="h-7 w-7 border-2 border-ah-surface">
-              <AvatarFallback className="bg-ah-surface-raised text-ah-text-muted text-[10px] font-bold">
-                {userName.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            {peerArray.slice(0, 3).map(([id, peer]) => (
-              <Avatar key={id} className="h-7 w-7 border-2 border-ah-surface">
-                <AvatarFallback className="bg-ah-surface text-ah-text-muted text-[10px]">
-                  {peer.userName.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-            {peerArray.length > 3 && (
-              <Avatar className="h-7 w-7 border-2 border-ah-surface">
-                <AvatarFallback className="bg-ah-surface text-[10px] text-ah-text-faint">
-                  +{peerArray.length - 3}
-                </AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-
-          <Badge className="bg-ah-surface border-ah-border text-ah-text-muted text-[10px] font-mono gap-1">
-            <Users className="h-3 w-3" />
-            {roomUserCount}
-          </Badge>
-
-          {/* Video quality indicator (only when video is in use) */}
-          {isAnyVideoOn && <VideoQualityBadge quality={videoQuality} />}
-
-          <ThemeToggle isCompact />
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setChatOpen(!chatOpen)}
-            className={cn(
-              "rounded-full h-8 w-8 border-ah-border bg-ah-surface hover:bg-ah-surface-raised hidden xl:flex text-ah-text-muted",
-              chatOpen && "bg-violet-100 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800/40 text-violet-600 dark:text-violet-400 hover:bg-violet-200"
-            )}
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-          </Button>
-
-          <Button
-            variant="destructive"
-            onClick={() => { agents.disconnect(); onLeave(); }}
-            size="sm"
-            className="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 hover:bg-red-100 dark:hover:bg-red-900/40 hidden xl:flex h-8 text-xs font-semibold"
-          >
-            Leave
-          </Button>
-        </div>
-      </header>
+      <TopBar
+        roomId={roomId}
+        userName={userName}
+        peers={peers}
+        isConnected={isConnected}
+        roomUserCount={roomUserCount}
+        isVideoEnabled={isVideoEnabled}
+        isRecording={recording.isRecording}
+        chatOpen={activeTab === "chat"}
+        onToggleChat={() => setActiveTab(prev => prev === "chat" ? null : "chat")}
+        onLeave={() => { agents.disconnect(); onLeave(); }}
+      />
 
       {/* Main Content */}
       <main className="flex min-h-0 flex-1 overflow-hidden">
@@ -752,7 +661,22 @@ export function RoomScreen({
           </div>
         </div>
 
-        <ActivitySidebar activityLog={activityLog} roomUserCount={roomUserCount} />
+        {/* Right Panel (Chat / Participants / Activity) */}
+        <RightPanel
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          chatMessages={chatMessages}
+          onSendMessage={agents.sendChatMessage}
+          unreadCount={0 /* Could calculate later based on chat history size change */}
+          peers={peers}
+          localUserId={userId}
+          localUserName={userName}
+          localIsMuted={isMuted}
+          localIsVideo={isVideoEnabled}
+          userRole={userRole}
+          onHostAction={agents.triggerHostAction}
+          activityLog={activityLog}
+        />
       </main>
 
       {/* Control Bar */}
@@ -768,6 +692,8 @@ export function RoomScreen({
         onOpenDeviceSelector={() => setSettingsOpen(true)}
         volume={globalVolume}
         onVolumeChange={setGlobalVolume}
+        activeTab={activeTab}
+        onToggleTab={setActiveTab}
         recordingState={{ isRecording: recording.isRecording, elapsed: recording.elapsed, blob: recording.blob }}
         onStartRecording={() => {
           const streams: MediaStream[] = [];
@@ -779,13 +705,6 @@ export function RoomScreen({
         onStopRecording={recording.stopRecording}
         onDownloadRecording={() => recording.downloadRecording()}
         onClearRecording={recording.clearRecording}
-      />
-
-      <ChatPanel
-        messages={chatMessages}
-        onSendMessage={agents.sendChatMessage}
-        isOpen={chatOpen}
-        onToggle={() => setChatOpen(!chatOpen)}
       />
 
       {/* Legacy DeviceSelector — kept for backward compat */}

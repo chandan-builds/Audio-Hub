@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, MessageSquare, Users } from "lucide-react";
+import { X, MessageSquare, Users, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { PeerData, ChatMessage } from "@/src/hooks/useWebRTC";
+import type { PeerData, ChatMessage, ActivityEvent } from "@/src/hooks/useWebRTC";
 import type { PanelTab } from "@/src/hooks/webrtc/types";
 import { ChatPanel } from "@/src/components/ChatPanel";
 import { ParticipantsPanel } from "./ParticipantsPanel";
+import { ActivityPanel } from "./ActivityPanel";
 
 interface RightPanelProps {
   activeTab:     PanelTab;
@@ -25,6 +26,8 @@ interface RightPanelProps {
   localIsVideo:   boolean;
   userRole:       "host" | "participant";
   onHostAction:   (action: string, targetUserId: string) => void;
+  /* Activity */
+  activityLog:    ActivityEvent[];
 }
 
 export function RightPanel({
@@ -32,6 +35,7 @@ export function RightPanel({
   chatMessages, onSendMessage, unreadCount,
   peers, localUserId, localUserName, localIsMuted, localIsVideo,
   userRole, onHostAction,
+  activityLog,
 }: RightPanelProps) {
   const isOpen = activeTab !== null;
 
@@ -86,19 +90,35 @@ export function RightPanel({
               People
             </button>
 
+            <button
+              id="right-panel-activity-tab"
+              onClick={() => onTabChange("activity")}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                activeTab === "activity"
+                  ? "border-violet-500 text-violet-600 dark:text-violet-400"
+                  : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              )}
+            >
+              <Activity className="h-4 w-4" />
+              Activity
+            </button>
+
             <div className="flex-1" />
 
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onTabChange(null)}
-                  id="right-panel-close"
-                  className="mr-2 h-8 w-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onTabChange(null)}
+                    id="right-panel-close"
+                    className="mr-2 h-8 w-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                  />
+                }
+              >
+                <X className="h-4 w-4" />
               </TooltipTrigger>
               <TooltipContent side="left" className="bg-zinc-900 border-zinc-700 text-zinc-200 text-[11px]">
                 Close panel (Esc)
@@ -127,6 +147,9 @@ export function RightPanel({
                 userRole={userRole}
                 onHostAction={onHostAction}
               />
+            )}
+            {activeTab === "activity" && (
+              <ActivityPanel activityLog={activityLog} />
             )}
           </div>
         </motion.aside>

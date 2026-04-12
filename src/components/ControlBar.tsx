@@ -1,16 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Volume2, Volume1, VolumeX,
-  Video, VideoOff, SwitchCamera, Circle
+  Video, VideoOff, SwitchCamera, Circle, Users, MessageSquare, Activity,
 } from "lucide-react";
-import { motion } from "motion/react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { motion, AnimatePresence } from "motion/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PiPKeepAlive } from "./PiPKeepAlive";
 import { RecordingControls } from "./room/RecordingControls";
 import type { RecordingState } from "@/src/hooks/useRecordingAgent";
+import type { PanelTab } from "@/src/hooks/webrtc/types";
 
 interface ControlBarProps {
   isMuted: boolean;
@@ -24,14 +23,97 @@ interface ControlBarProps {
   onOpenDeviceSelector: () => void;
   volume: number;
   onVolumeChange: (volume: number) => void;
-  /** Recording state from useRecordingAgent */
   recordingState?: RecordingState;
   onStartRecording?: () => void;
   onStopRecording?: () => void;
   onDownloadRecording?: () => void;
   onClearRecording?: () => void;
+  activeTab?: PanelTab;
+  onToggleTab?: (tab: PanelTab) => void;
+  /** Number of unread chat messages */
+  unreadCount?: number;
+  /** Total peer count (excluding local) */
+  peerCount?: number;
 }
 
+/* ─── Pill button ──────────────────────────────────────────────────────────── */
+interface PillBtnProps {
+  onClick: () => void;
+  active?: boolean;
+  danger?: boolean;
+  activeColor?: "violet" | "cyan" | "emerald" | "red" | "amber";
+  label: string;
+  kbd?: string;
+  badge?: number;
+  children: React.ReactNode;
+  className?: string;
+}
+
+function PillBtn({
+  onClick, active, danger, activeColor = "violet",
+  label, kbd, badge, children, className,
+}: PillBtnProps) {
+  const activeColorMap: Record<string, string> = {
+    violet: "bg-violet-500/20 border-violet-400/50 text-violet-300 shadow-violet-500/15",
+    cyan:   "bg-cyan-500/20   border-cyan-400/50   text-cyan-300   shadow-cyan-500/15",
+    emerald:"bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-emerald-500/15",
+    red:    "bg-red-500/20   border-red-400/50   text-red-300   shadow-red-500/20",
+    amber:  "bg-amber-500/20   border-amber-400/50   text-amber-300   shadow-amber-500/15",
+  };
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={onClick}
+          className={cn(
+            "relative h-11 w-11 rounded-2xl border transition-all duration-200",
+            "flex items-center justify-center",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ah-accent/60",
+            // Base
+            "bg-white/5 border-white/10 text-white/60",
+            "hover:bg-white/10 hover:border-white/20 hover:text-white",
+            "active:scale-95",
+            // Active state
+            active && !danger && activeColorMap[activeColor] + " shadow-md",
+            // Danger (leave button)
+            danger && "bg-red-500 border-red-400 text-white hover:bg-red-600 hover:border-red-500 shadow-md shadow-red-500/30 h-11 w-11",
+            className,
+          )}
+          aria-label={label}
+          aria-pressed={active}
+        >
+          {children}
+
+          {/* Badge */}
+          {badge !== undefined && badge > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-violet-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white px-1 shadow-lg">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        className="bg-ah-surface/95 border-ah-glass-border backdrop-blur-xl text-ah-text text-xs flex items-center gap-2"
+      >
+        {label}
+        {kbd && (
+          <kbd className="px-1.5 py-0.5 bg-ah-surface-raised border border-ah-border rounded text-[10px] font-mono text-ah-text-muted">
+            {kbd}
+          </kbd>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ─── Divider ──────────────────────────────────────────────────────────────── */
+function Divider() {
+  return <div className="h-6 w-px bg-white/10 mx-1 shrink-0" />;
+}
+
+/* ─── ControlBar ───────────────────────────────────────────────────────────── */
 export function ControlBar({
   isMuted,
   isSharingScreen,
@@ -49,163 +131,185 @@ export function ControlBar({
   onStopRecording,
   onDownloadRecording,
   onClearRecording,
+  activeTab = null,
+  onToggleTab,
+  unreadCount = 0,
+  peerCount = 0,
 }: ControlBarProps) {
-  const [time, setTime] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [recordingPopoverOpen, setRecordingPopoverOpen] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const volumeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
+  /* Session timer */
   useEffect(() => {
-    const interval = setInterval(() => setTime((t) => t + 1), 1000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setElapsed(t => t + 1), 1000);
+    return () => clearInterval(id);
   }, []);
 
   const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
-    return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+    if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+
+  const showVolumeSlider = () => {
+    setShowVolume(true);
+    clearTimeout(volumeTimeoutRef.current);
+    volumeTimeoutRef.current = setTimeout(() => setShowVolume(false), 3000);
   };
 
   return (
+    /* Floating glass pill anchored at bottom */
     <motion.div
-      initial={{ y: 20, opacity: 0 }}
+      initial={{ y: 24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="relative flex h-20 items-center justify-center gap-3 border-t border-ah-border bg-ah-control-bg px-6 backdrop-blur-2xl"
+      transition={{ type: "spring", stiffness: 280, damping: 28, delay: 0.1 }}
+      className={cn(
+        "relative flex items-center justify-center gap-1.5 sm:gap-2",
+        "px-4 py-2.5",
+        "rounded-2xl sm:rounded-[22px]",
+        "bg-ah-glass backdrop-blur-2xl border border-ah-glass-border",
+        "shadow-2xl shadow-black/40",
+        /* Full-width on tiny screens, auto on large */
+        "w-full max-w-none sm:w-auto sm:max-w-fit sm:mx-auto",
+      )}
     >
-      {/* Call duration */}
-      <div className="absolute left-6 hidden sm:flex items-center gap-2">
-        <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-        <span className="text-xs font-mono text-ah-text-muted">{formatTime(time)}</span>
+      {/* ── Left info: timer ── */}
+      <div className="absolute left-4 hidden md:flex items-center gap-2">
+        <motion.div
+          animate={{ opacity: [1, 0.4, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+        />
+        <span className="text-[11px] font-mono text-white/40 tabular-nums">
+          {formatTime(elapsed)}
+        </span>
       </div>
 
-      {/* ── Group 1: Media Controls ── */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onToggleMute}
-            className={cn(
-              "h-12 w-12 rounded-full border-ah-border bg-ah-surface text-ah-text-muted transition-all duration-200 hover:bg-ah-control-hover hover:text-ah-text",
-              isMuted && "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50",
-              !isMuted && "shadow-[0_0_12px_rgba(16,185,129,0.15)] dark:shadow-[0_0_12px_rgba(16,185,129,0.1)]"
-            )}
+      {/* ── Group 1: Mic + Video ── */}
+      <PillBtn
+        onClick={onToggleMute}
+        active={!isMuted}
+        activeColor="emerald"
+        label={isMuted ? "Unmute" : "Mute"}
+        kbd="M"
+      >
+        {isMuted
+          ? <MicOff className="h-[18px] w-[18px]" />
+          : <Mic className="h-[18px] w-[18px]" />
+        }
+      </PillBtn>
+
+      <PillBtn
+        onClick={onToggleVideo}
+        active={isVideoEnabled}
+        activeColor="violet"
+        label={isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}
+        kbd="V"
+      >
+        {isVideoEnabled
+          ? <Video className="h-[18px] w-[18px]" />
+          : <VideoOff className="h-[18px] w-[18px]" />
+        }
+      </PillBtn>
+
+      {/* Camera switch — only when video is on */}
+      <AnimatePresence>
+        {isVideoEnabled && (
+          <motion.div
+            key="cam-switch"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 44, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
           >
-            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="border-ah-border bg-ah-surface text-ah-text">
-          <span>{isMuted ? "Unmute" : "Mute"}</span>
-          <kbd className="ml-2 rounded bg-ah-surface-raised px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ah-text-muted">M</kbd>
-        </TooltipContent>
-      </Tooltip>
+            <PillBtn onClick={onSwitchCamera} label="Switch Camera">
+              <SwitchCamera className="h-[18px] w-[18px]" />
+            </PillBtn>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Video Toggle */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onToggleVideo}
-            className={cn(
-              "h-12 w-12 rounded-full border-ah-border bg-ah-surface text-ah-text-muted transition-all duration-200 hover:bg-ah-control-hover hover:text-ah-text",
-              isVideoEnabled && "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-700/50 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-950/50 shadow-[0_0_12px_rgba(139,92,246,0.15)] dark:shadow-[0_0_12px_rgba(139,92,246,0.1)]"
-            )}
-          >
-            {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="border-ah-border bg-ah-surface text-ah-text">
-          <span>{isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}</span>
-          <kbd className="ml-2 rounded bg-ah-surface-raised px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ah-text-muted">V</kbd>
-        </TooltipContent>
-      </Tooltip>
+      <Divider />
 
-      {/* Camera Switch */}
-      {isVideoEnabled && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onSwitchCamera}
-              className="h-12 w-12 rounded-full border-ah-border bg-ah-surface text-ah-text-muted transition-all duration-200 hover:bg-ah-control-hover hover:text-ah-text"
-            >
-              <SwitchCamera className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="border-ah-border bg-ah-surface text-ah-text">
-            Switch Camera
-          </TooltipContent>
-        </Tooltip>
-      )}
-
-      <Separator orientation="vertical" className="mx-0.5 h-8 bg-ah-border" />
-
-      {/* ── Group 2: Collaboration ── */}
+      {/* ── Group 2: Screen share ── */}
       {!isMobile && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onToggleScreenShare}
-              className={cn(
-                "h-12 w-12 rounded-full border-ah-border bg-ah-surface text-ah-text-muted transition-all duration-200 hover:bg-ah-control-hover hover:text-ah-text",
-                isSharingScreen && "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-700/50 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-950/50 shadow-[0_0_12px_rgba(6,182,212,0.15)] dark:shadow-[0_0_12px_rgba(6,182,212,0.1)]"
-              )}
-            >
-              {isSharingScreen ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="border-ah-border bg-ah-surface text-ah-text">
-            <span>{isSharingScreen ? "Stop Sharing" : "Share Screen"}</span>
-            <kbd className="ml-2 rounded bg-ah-surface-raised px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ah-text-muted">S</kbd>
-          </TooltipContent>
-        </Tooltip>
+        <PillBtn
+          onClick={onToggleScreenShare}
+          active={isSharingScreen}
+          activeColor="cyan"
+          label={isSharingScreen ? "Stop Sharing" : "Share Screen"}
+          kbd="S"
+        >
+          {isSharingScreen
+            ? <MonitorOff className="h-[18px] w-[18px]" />
+            : <Monitor className="h-[18px] w-[18px]" />
+          }
+        </PillBtn>
       )}
 
-      <Separator orientation="vertical" className="mx-0.5 h-8 bg-ah-border" />
+      <Divider />
 
-      {/* ── Group 3: Settings + Recording ── */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onOpenDeviceSelector}
-            className="h-12 w-12 rounded-full border-ah-border bg-ah-surface text-ah-text-muted transition-all duration-200 hover:bg-ah-control-hover hover:text-ah-text"
+      {/* ── Group 3: Panels ── */}
+      {onToggleTab && (
+        <>
+          <PillBtn
+            onClick={() => onToggleTab("participants")}
+            active={activeTab === "participants"}
+            activeColor="violet"
+            label="Participants"
+            badge={peerCount + 1}
           >
-             <Settings2 className="h-5 w-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="border-ah-border bg-ah-surface text-ah-text">
-          Settings
-        </TooltipContent>
-      </Tooltip>
+            <Users className="h-[18px] w-[18px]" />
+          </PillBtn>
 
-      {/* Recording button */}
+          <PillBtn
+            onClick={() => onToggleTab("chat")}
+            active={activeTab === "chat"}
+            activeColor="violet"
+            label="Chat"
+            kbd="C"
+            badge={unreadCount}
+          >
+            <MessageSquare className="h-[18px] w-[18px]" />
+          </PillBtn>
+
+          <PillBtn
+            onClick={() => onToggleTab("activity")}
+            active={activeTab === "activity"}
+            activeColor="amber"
+            label="Activity"
+          >
+            <Activity className="h-[18px] w-[18px]" />
+          </PillBtn>
+        </>
+      )}
+
+      {/* Recording */}
       {recordingState && (
         <div className="relative">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setRecordingPopoverOpen((p) => !p)}
-                className={cn(
-                  "h-12 w-12 rounded-full border-ah-border bg-ah-surface text-ah-text-muted transition-all duration-200 hover:bg-ah-control-hover hover:text-ah-text",
-                  recordingState.isRecording && "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.2)] dark:shadow-[0_0_12px_rgba(239,68,68,0.15)]"
-                )}
-              >
-                <Circle className={cn("h-5 w-5", recordingState.isRecording ? "text-red-500 fill-red-500 animate-pulse" : "text-ah-text-muted")} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="border-ah-border bg-ah-surface text-ah-text">
-              {recordingState.isRecording ? "Recording…" : recordingState.blob ? "Download Recording" : "Record"}
-            </TooltipContent>
-          </Tooltip>
+          <PillBtn
+            onClick={() => setRecordingPopoverOpen(p => !p)}
+            active={recordingState.isRecording}
+            activeColor="red"
+            label={recordingState.isRecording ? "Recording…" : recordingState.blob ? "Download" : "Record"}
+          >
+            <motion.div
+              animate={recordingState.isRecording ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ duration: 1, repeat: Infinity }}
+            >
+              <Circle className={cn(
+                "h-[18px] w-[18px]",
+                recordingState.isRecording ? "fill-red-400 text-red-400" : "text-white/60"
+              )} />
+            </motion.div>
+          </PillBtn>
 
-          {/* Recording popover */}
           <RecordingControls
             state={recordingState}
             isOpen={recordingPopoverOpen}
@@ -218,44 +322,61 @@ export function ControlBar({
         </div>
       )}
 
+      {/* Settings */}
+      <PillBtn onClick={onOpenDeviceSelector} label="Settings">
+        <Settings2 className="h-[18px] w-[18px]" />
+      </PillBtn>
+
       <PiPKeepAlive isMuted={isMuted} onToggleMute={onToggleMute} />
 
-      <Separator orientation="vertical" className="mx-1 h-8 bg-ah-border" />
+      <Divider />
 
-      {/* ── Group 4: Leave ── */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="destructive"
-            size="icon"
-            onClick={onLeave}
-            className="h-12 w-12 rounded-full bg-red-500 hover:bg-red-600 dark:bg-red-600/80 dark:hover:bg-red-600 shadow-lg shadow-red-900/10 dark:shadow-red-900/20 text-white transition-all duration-200 active:scale-95"
-          >
-            <PhoneOff className="h-5 w-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="border-ah-border bg-ah-surface text-ah-text">
-          Leave Room
-        </TooltipContent>
-      </Tooltip>
+      {/* ── Leave ── */}
+      <PillBtn onClick={onLeave} danger label="Leave Room" kbd="⌥Q">
+        <PhoneOff className="h-[18px] w-[18px]" />
+      </PillBtn>
 
-      {/* Volume Control */}
-      <div className="absolute right-6 hidden sm:flex items-center gap-2 group">
-        <button 
-          onClick={() => onVolumeChange(volume === 0 ? 1 : 0)}
-          className="text-ah-text-faint transition-colors hover:text-ah-text-muted focus:outline-none"
+      {/* ── Right: volume ── */}
+      <div
+        className="absolute right-4 hidden lg:flex items-center gap-2"
+        onMouseEnter={showVolumeSlider}
+        onMouseLeave={() => {
+          clearTimeout(volumeTimeoutRef.current);
+          volumeTimeoutRef.current = setTimeout(() => setShowVolume(false), 1200);
+        }}
+      >
+        <button
+          onClick={() => { onVolumeChange(volume === 0 ? 1 : 0); showVolumeSlider(); }}
+          className="text-white/30 hover:text-white/70 transition-colors"
+          aria-label="Toggle mute volume"
         >
-          {volume === 0 ? <VolumeX className="h-4 w-4" /> : volume < 0.5 ? <Volume1 className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          {volume === 0
+            ? <VolumeX className="h-4 w-4" />
+            : volume < 0.5
+            ? <Volume1 className="h-4 w-4" />
+            : <Volume2 className="h-4 w-4" />
+          }
         </button>
-        <input 
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={volume}
-          onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-          className="h-1.5 w-20 cursor-pointer appearance-none rounded-full bg-ah-border accent-violet-500 transition-all hover:accent-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-500/30 dark:accent-violet-400"
-        />
+
+        <AnimatePresence>
+          {showVolume && (
+            <motion.input
+              key="vol-slider"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 80, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volume}
+              onChange={e => onVolumeChange(parseFloat(e.target.value))}
+              className="h-1 cursor-pointer appearance-none rounded-full accent-violet-500 focus:outline-none"
+              style={{ width: 80 }}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

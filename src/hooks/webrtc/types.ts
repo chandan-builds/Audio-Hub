@@ -1,7 +1,7 @@
 export type VideoQuality = "high" | "medium" | "low" | "off";
 
 export type LayoutMode = "grid" | "speaker" | "pinned" | "presentation";
-export type PanelTab = "chat" | "participants" | null;
+export type PanelTab = "chat" | "participants" | "activity" | null;
 export type ConnectionQuality =
   | "excellent"
   | "good"
