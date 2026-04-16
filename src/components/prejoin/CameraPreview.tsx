@@ -103,8 +103,8 @@ export const CameraPreview = memo(function CameraPreview({
             ) : (
               <>
                 {/* Avatar fallback */}
-                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-ah-accent to-blue-600 flex items-center justify-center shadow-[0_0_20px_var(--ah-accent-glow)]">
-                  <span className="text-2xl font-bold text-white">{getInitials(fallbackName)}</span>
+                <div className="h-20 w-20 rounded-full bg-ah-accent flex items-center justify-center">
+                  <span className="text-xl font-medium text-white tracking-wide">{getInitials(fallbackName)}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-ah-text-muted">
                   <VideoOff className="h-3.5 w-3.5" />
@@ -120,8 +120,8 @@ export const CameraPreview = memo(function CameraPreview({
       <div className="absolute inset-0 rounded-[var(--ah-card-radius)] pointer-events-none ring-1 ring-inset ring-white/10 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.3)_100%)]" />
 
       {/* Camera Preview Status Badge */}
-      <div className="absolute top-3 left-3 bg-black/40 backdrop-blur-md text-[10px] font-semibold text-white/80 px-2.5 py-1 rounded-md uppercase tracking-wider border border-white/10 pointer-events-none">
-        {hasVideo && !isLoading ? "Live Preview" : "Preview Status"}
+      <div className="absolute top-3 left-3 bg-black/45 backdrop-blur-md text-[10px] font-medium text-white/85 px-2 py-0.5 rounded-md border border-white/10 pointer-events-none">
+        {hasVideo && !isLoading ? "Live preview" : "Preview"}
       </div>
     </div>
   );

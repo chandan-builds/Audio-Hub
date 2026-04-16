@@ -49,7 +49,13 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── Light Mode (default) — shadcn tokens + Audio Hub tokens ────────────
+   IMPORTANT: `.dark` MUST come AFTER `:root` below, since both selectors
+   have identical specificity. If `:root` appears later, it will overwrite
+   the `.dark` values and break dark mode.
+   ─────────────────────────────────────────────────────────────────────── */
 :root {
+    /* shadcn tokens — light */
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -73,7 +79,7 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
+    --radius: 0.75rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -82,9 +88,57 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* Audio Hub — Minimalist Light Mode */
+    --ah-bg:            oklch(0.982 0 0);        /* #FAFAFA off-white       */
+    --ah-surface:       oklch(1 0 0);            /* pure white cards        */
+    --ah-surface-raised:oklch(0.992 0 0);
+    --ah-overlay:       oklch(1 0 0 / 78%);
+    --ah-border:        oklch(0.91 0 0);
+    --ah-border-subtle: oklch(0.94 0 0);
+    --ah-border-strong: oklch(0.80 0 0);
+    --ah-text:          oklch(0.16 0 0);         /* #111 near-black         */
+    --ah-text-muted:    oklch(0.42 0 0);
+    --ah-text-faint:    oklch(0.58 0 0);
+    --ah-text-subtle:   oklch(0.38 0 0);
+    --ah-toggle-track:  oklch(0.88 0 0);
+    --ah-toggle-thumb:  oklch(1 0 0);
+    --ah-header-bg:     oklch(1 0 0 / 82%);
+    --ah-control-bg:    oklch(1 0 0 / 96%);
+    --ah-control-hover: oklch(0.96 0 0);
+    --ah-selection-bg:  oklch(0.88 0.02 285);
+    --ah-signal-off:    oklch(0.55 0 0);
+    --ah-focus-ring:    oklch(0.58 0.18 285 / 30%);
+    --ah-focus-ring-strong: oklch(0.52 0.18 285 / 42%);
+    --ah-speaking-ring: oklch(0.58 0.15 160 / 35%);
+    --ah-card-radius:   0.875rem;
+
+    --ah-accent:           oklch(0.54 0.19 285);
+    --ah-accent-hover:     oklch(0.47 0.19 285);
+    --ah-accent-glow:      oklch(0.54 0.19 285 / 10%);
+    --ah-accent-subtle:    oklch(0.54 0.19 285 / 7%);
+
+    --ah-success:          oklch(0.56 0.15 160);
+    --ah-danger:           oklch(0.55 0.20 25);
+    --ah-danger-glow:      oklch(0.55 0.20 25 / 10%);
+    --ah-danger-bg:        oklch(0.54 0.20 25);
+    --ah-danger-hover:     oklch(0.47 0.20 25);
+    --ah-danger-text:      oklch(1 0 0);
+
+    --ah-glass:            oklch(1 0 0 / 86%);
+    --ah-glass-border:     oklch(0 0 0 / 8%);
+    --ah-glass-hover:      oklch(0.98 0 0 / 92%);
+
+    --ah-shadow:           0 1px 2px oklch(0 0 0 / 5%), 0 4px 16px oklch(0 0 0 / 6%);
+    --ah-control-shadow:   0 1px 3px oklch(0 0 0 / 6%), 0 8px 28px oklch(0 0 0 / 8%);
+
+    --ah-slider-track:     oklch(0.88 0 0);
+    --ah-slider-fill:      oklch(0.54 0.19 285);
 }
 
+/* ── Dark Mode — overrides (MUST come after :root) ──────────────────────── */
 .dark {
+    /* shadcn tokens — dark */
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -117,96 +171,52 @@
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
 
-    /* ── Audio Hub dark-mode semantic tokens ───────────────────────────────
-       These alias the shadcn base tokens. Components should reference these
-       --ah-* variables, never hardcoded zinc/slate/gray values.
-       ─────────────────────────────────────────────────────────────────────── */
-    --ah-bg:            oklch(0.08 0 0);      /* page root (#0a0a0a equiv)    */
-    --ah-surface:       oklch(0.145 0 0);     /* cards, panels                */
-    --ah-surface-raised:oklch(0.205 0 0);     /* elevated cards               */
-    --ah-overlay:       oklch(0.205 0 0 / 80%); /* modal/sheet backdrop       */
-    --ah-border:        oklch(1 0 0 / 10%);   /* aliases --border             */
-    --ah-border-subtle: oklch(1 0 0 / 6%);    /* hair-line separators         */
-    --ah-text:          oklch(0.985 0 0);     /* primary text                 */
-    --ah-text-muted:    oklch(0.708 0 0);     /* secondary/hint text          */
-    --ah-text-faint:    oklch(0.556 0 0);     /* placeholders                 */
-    --ah-toggle-track:  oklch(0.269 0 0);     /* ThemeToggle inactive track   */
-    --ah-toggle-thumb:  oklch(0.08 0 0);      /* ThemeToggle thumb            */
-    --ah-header-bg:     oklch(0.12 0 0 / 60%); /* header glassmorphism        */
-    --ah-control-bg:    oklch(0.10 0 0 / 88%);
-    --ah-control-hover: oklch(0.20 0 0);
-    --ah-selection-bg:  oklch(0.269 0 0);     /* text selection               */
-    --ah-signal-off:    oklch(0.35 0 0);      /* signal-off badge             */
-    --ah-focus-ring:    oklch(0.58 0.22 290 / 35%);
-    --ah-focus-ring-strong: oklch(0.68 0.20 285 / 50%);
-    --ah-speaking-ring: oklch(0.70 0.18 160 / 45%);
-    --ah-border-strong: oklch(1 0 0 / 22%);   /* stronger hover border        */
-    --ah-text-subtle:   oklch(0.45 0 0);      /* alias: slightly darker faint */
-    --ah-card-radius:   0.875rem;             /* peer card corner radius      */
+    /* Audio Hub — Minimalist Dark Mode
+       Deep grey (not pure black) for reduced eye strain.
+       Soft white text (not pure white) for long-read comfort. */
+    --ah-bg:            oklch(0.155 0.003 285);
+    --ah-surface:       oklch(0.195 0.003 285);
+    --ah-surface-raised:oklch(0.235 0.003 285);
+    --ah-overlay:       oklch(0.15 0.003 285 / 72%);
+    --ah-border:        oklch(1 0 0 / 8%);
+    --ah-border-subtle: oklch(1 0 0 / 5%);
+    --ah-border-strong: oklch(1 0 0 / 16%);
+    --ah-text:          oklch(0.93 0 0);
+    --ah-text-muted:    oklch(0.70 0 0);
+    --ah-text-faint:    oklch(0.55 0 0);
+    --ah-text-subtle:   oklch(0.45 0 0);
+    --ah-toggle-track:  oklch(0.26 0 0);
+    --ah-toggle-thumb:  oklch(0.12 0 0);
+    --ah-header-bg:     oklch(0.155 0.003 285 / 72%);
+    --ah-control-bg:    oklch(0.20 0.003 285 / 92%);
+    --ah-control-hover: oklch(0.255 0.003 285);
+    --ah-selection-bg:  oklch(0.30 0.02 285);
+    --ah-signal-off:    oklch(0.35 0 0);
+    --ah-focus-ring:    oklch(0.70 0.16 285 / 35%);
+    --ah-focus-ring-strong: oklch(0.75 0.16 285 / 45%);
+    --ah-speaking-ring: oklch(0.70 0.16 160 / 35%);
 
-    /* Premium Overhaul Tokens (Dark Mode) */
-    --ah-accent:           oklch(0.65 0.24 285);     /* violet-500 */
-    --ah-accent-hover:     oklch(0.58 0.24 285);     /* violet-600 */
-    --ah-accent-glow:      oklch(0.65 0.24 285 / 20%);
-    --ah-accent-subtle:    oklch(0.65 0.24 285 / 8%);
-    --ah-success:          oklch(0.72 0.19 160);     /* emerald-400 */
-    --ah-danger:           oklch(0.64 0.22 25);      /* red-500 */
-    --ah-danger-glow:      oklch(0.64 0.22 25 / 20%);
-    --ah-danger-bg:        oklch(0.60 0.22 25);      /* red-500 solid */
-    --ah-danger-hover:     oklch(0.53 0.22 25);      /* red-600 */
-    --ah-danger-text:      oklch(1 0 0);             /* white */
-    --ah-glass:            oklch(0.12 0 0 / 72%);    /* frosted glass bg */
-    --ah-glass-border:     oklch(1 0 0 / 10%);       /* glass border */
-    --ah-glass-hover:      oklch(0.18 0 0 / 80%);
-    --ah-shadow:           0 4px 24px oklch(0 0 0 / 32%);
-    --ah-control-shadow:   0 8px 32px oklch(0 0 0 / 40%);
-    --ah-slider-track:     oklch(0.25 0 0);
-    --ah-slider-fill:      oklch(0.65 0.24 285);
-}
+    --ah-accent:           oklch(0.70 0.17 285);
+    --ah-accent-hover:     oklch(0.64 0.17 285);
+    --ah-accent-glow:      oklch(0.70 0.17 285 / 10%);
+    --ah-accent-subtle:    oklch(0.70 0.17 285 / 7%);
 
-/* ── Light-mode Audio Hub tokens ─────────────────────────────────────────── */
-:root {
-    --ah-bg:            oklch(0.962 0.004 265); /* subtle cool off-white       */
-    --ah-surface:       oklch(1 0 0);           /* white cards/panels          */
-    --ah-surface-raised:oklch(0.985 0 0);
-    --ah-overlay:       oklch(1 0 0 / 80%);
-    --ah-border:        oklch(0.908 0 0);        /* slightly stronger border    */
-    --ah-border-subtle: oklch(0.935 0 0);
-    --ah-text:          oklch(0.145 0 0);        /* near-black                  */
-    --ah-text-muted:    oklch(0.48 0 0);         /* darker muted for contrast   */
-    --ah-text-faint:    oklch(0.65 0 0);
-    --ah-toggle-track:  oklch(0.878 0 0);     /* zinc-200                     */
-    --ah-toggle-thumb:  oklch(1 0 0);         /* white thumb                  */
-    --ah-header-bg:     oklch(1 0 0 / 88%);
-    --ah-control-bg:    oklch(1 0 0 / 98%);      /* near-solid for control bar  */
-    --ah-control-hover: oklch(0.94 0.002 265);   /* cool hover                  */
-    --ah-selection-bg:  oklch(0.878 0 0);
-    --ah-signal-off:    oklch(0.55 0 0);
-    --ah-focus-ring:    oklch(0.64 0.22 285 / 35%);
-    --ah-focus-ring-strong: oklch(0.58 0.22 285 / 50%);
-    --ah-speaking-ring: oklch(0.62 0.18 160 / 45%);
-    --ah-border-strong: oklch(0 0 0 / 20%);      /* stronger hover border       */
-    --ah-text-subtle:   oklch(0.42 0 0);
-    --ah-card-radius:   0.875rem;
+    --ah-success:          oklch(0.72 0.15 160);
+    --ah-danger:           oklch(0.65 0.20 25);
+    --ah-danger-glow:      oklch(0.65 0.20 25 / 10%);
+    --ah-danger-bg:        oklch(0.58 0.20 25);
+    --ah-danger-hover:     oklch(0.52 0.20 25);
+    --ah-danger-text:      oklch(1 0 0);
 
-    /* Premium Overhaul Tokens (Light Mode) */
-    --ah-accent:           oklch(0.58 0.24 285);     /* violet-600 */
-    --ah-accent-hover:     oklch(0.50 0.24 285);     /* violet-700 */
-    --ah-accent-glow:      oklch(0.58 0.24 285 / 20%);
-    --ah-accent-subtle:    oklch(0.58 0.24 285 / 10%);
-    --ah-success:          oklch(0.62 0.19 160);     /* emerald-600 */
-    --ah-danger:           oklch(0.54 0.22 25);      /* red-600 */
-    --ah-danger-glow:      oklch(0.54 0.22 25 / 20%);
-    --ah-danger-bg:        oklch(0.54 0.22 25);      /* red-600 solid */
-    --ah-danger-hover:     oklch(0.47 0.22 25);      /* red-700 */
-    --ah-danger-text:      oklch(1 0 0);             /* white */
-    --ah-glass:            oklch(0.99 0 0 / 82%);    /* frosted white bg */
-    --ah-glass-border:     oklch(0 0 0 / 14%);       /* more visible in light mode */
-    --ah-glass-hover:      oklch(0.96 0 0 / 90%);
-    --ah-shadow:           0 2px 12px oklch(0 0 0 / 10%);
-    --ah-control-shadow:   0 4px 20px oklch(0 0 0 / 14%);
-    --ah-slider-track:     oklch(0.88 0 0);
-    --ah-slider-fill:      oklch(0.58 0.24 285);
+    --ah-glass:            oklch(0.19 0.003 285 / 76%);
+    --ah-glass-border:     oklch(1 0 0 / 8%);
+    --ah-glass-hover:      oklch(0.22 0.003 285 / 84%);
+
+    --ah-shadow:           0 1px 2px oklch(0 0 0 / 20%), 0 8px 24px oklch(0 0 0 / 18%);
+    --ah-control-shadow:   0 1px 2px oklch(0 0 0 / 24%), 0 12px 32px oklch(0 0 0 / 24%);
+
+    --ah-slider-track:     oklch(0.28 0 0);
+    --ah-slider-fill:      oklch(0.70 0.17 285);
 }
 
 /* ── Tailwind v4 theme extension ─────────────────────────────────────────── */
@@ -258,8 +268,11 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    @apply bg-background text-foreground antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
   html {
     @apply font-sans;
@@ -276,7 +289,7 @@
   input[type="range"].ah-slider {
     -webkit-appearance: none;
     appearance: none;
-    height: 4px;
+    height: 3px;
     border-radius: 9999px;
     background: var(--ah-slider-track);
     outline: none;
@@ -285,28 +298,28 @@
   input[type="range"].ah-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
     border-radius: 50%;
     background: var(--ah-slider-fill);
     border: 2px solid var(--ah-surface);
-    box-shadow: 0 1px 4px oklch(0 0 0 / 30%);
+    box-shadow: 0 1px 3px oklch(0 0 0 / 20%);
     cursor: pointer;
-    transition: transform 0.15s ease;
+    transition: transform 0.18s ease;
   }
   input[type="range"].ah-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
+    transform: scale(1.15);
   }
   input[type="range"].ah-slider::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
     border-radius: 50%;
     background: var(--ah-slider-fill);
     border: 2px solid var(--ah-surface);
     cursor: pointer;
   }
   input[type="range"].ah-slider::-moz-range-track {
-    height: 4px;
+    height: 3px;
     border-radius: 9999px;
     background: var(--ah-slider-track);
   }
@@ -316,18 +329,26 @@
   }
 }
 
-/* Premium Overhaul Animations & Utilities */
+/* ── Minimalist utilities ───────────────────────────────────────────────── */
 @layer utilities {
   .glass-panel {
-    @apply bg-ah-glass backdrop-blur-xl border border-ah-glass-border shadow-sm;
+    @apply bg-ah-glass backdrop-blur-xl border border-ah-glass-border;
+    box-shadow: var(--ah-shadow);
   }
-  
+
   .glass-panel-hover {
-    @apply hover:bg-ah-glass-hover transition-colors duration-300;
+    @apply hover:bg-ah-glass-hover transition-colors duration-200;
   }
-  
+
+  /* Kept for backwards compatibility with a few components — now a no-op. */
   .text-glow {
-    text-shadow: 0 0 10px var(--ah-accent-glow);
+    text-shadow: none;
+  }
+
+  /* Soft, consistent focus treatment */
+  .ah-focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2;
+    --tw-ring-color: var(--ah-focus-ring);
   }
 }
 
@@ -339,7 +360,7 @@
 
 @keyframes ring-pulse {
   0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.5; }
+  50% { transform: scale(1.08); opacity: 0.5; }
   100% { transform: scale(1); opacity: 1; }
 }
 

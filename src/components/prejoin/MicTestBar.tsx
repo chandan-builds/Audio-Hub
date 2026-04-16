@@ -124,10 +124,10 @@ export const MicTestBar = memo(function MicTestBar({
               isMuted
                 ? "bg-ah-border"
                 : level > 0.6
-                  ? "bg-gradient-to-t from-ah-success to-emerald-300 shadow-[0_0_8px_var(--ah-success)]"
+                  ? "bg-ah-success"
                   : level > 0.3
-                    ? "bg-gradient-to-t from-ah-success/80 to-emerald-400/80"
-                    : "bg-ah-border/50 bg-gradient-to-t from-ah-border to-ah-border/50"
+                    ? "bg-ah-success/75"
+                    : "bg-ah-border-strong/70"
             )}
             style={{
               height: `${Math.max(3, level * 36)}px`,

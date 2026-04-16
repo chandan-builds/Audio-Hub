@@ -90,8 +90,8 @@ export function TopBar({
       {/* ── Left: Logo + Room ID ── */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0">
-          <Radio className="h-4 w-4 text-violet-500" />
-          <h1 className="font-bold tracking-tight text-ah-text text-sm hidden sm:block">Audio Hub</h1>
+          <Radio className="h-4 w-4 text-ah-accent" strokeWidth={1.75} />
+          <h1 className="font-medium tracking-tight text-ah-text text-sm hidden sm:block">Audio Hub</h1>
         </div>
 
         <Separator orientation="vertical" className="h-4 bg-ah-border hidden sm:block" />
@@ -149,7 +149,7 @@ export function TopBar({
           <Tooltip>
             {/* Base UI TooltipTrigger render prop to change element */}
             <TooltipTrigger render={<Avatar className="h-7 w-7 border-2 border-ah-surface cursor-default" />}>
-              <AvatarFallback className="bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 text-[10px] font-bold">
+              <AvatarFallback className="bg-ah-accent-subtle text-ah-accent text-[10px] font-medium">
                 {userName.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </TooltipTrigger>
