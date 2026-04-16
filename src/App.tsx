@@ -72,13 +72,11 @@ export default function App() {
               href="https://github.com/chandan-builds"
               target="_blank"
               rel="noopener noreferrer"
-              className="fixed bottom-6 right-6 z-50 hidden md:flex items-center gap-2.5 rounded-full border border-ah-border-subtle bg-ah-surface/60 px-4 py-2 text-xs font-medium backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:bg-ah-surface-raised/80 hover:border-ah-border hover:shadow-[0_0_20px_rgba(168,85,247,0.2)] cursor-pointer group"
+              className="fixed bottom-5 right-5 z-50 hidden md:flex items-center gap-2 rounded-full border border-ah-border-subtle bg-ah-surface/80 px-3.5 py-1.5 text-[11px] font-medium backdrop-blur-md transition-colors duration-200 hover:bg-ah-surface hover:border-ah-border cursor-pointer group"
             >
-              <span className="text-ah-text-muted transition-colors group-hover:text-ah-text">Built by</span>
-              <span className="font-bold tracking-wide bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                chandan-builds
-              </span>
-              <Sparkles className="w-3.5 h-3.5 text-purple-500 opacity-70 group-hover:opacity-100 group-hover:text-pink-500 transition-all duration-300" />
+              <span className="text-ah-text-muted">Built by</span>
+              <span className="text-ah-text font-medium">chandan-builds</span>
+              <Sparkles className="w-3 h-3 text-ah-text-muted group-hover:text-ah-accent transition-colors duration-200" strokeWidth={1.75} />
             </a>
           )}
         </div>
