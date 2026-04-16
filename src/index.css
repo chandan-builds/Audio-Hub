@@ -49,7 +49,13 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── Light Mode (default) — shadcn tokens + Audio Hub tokens ────────────
+   IMPORTANT: `.dark` MUST come AFTER `:root` below, since both selectors
+   have identical specificity. If `:root` appears later, it will overwrite
+   the `.dark` values and break dark mode.
+   ─────────────────────────────────────────────────────────────────────── */
 :root {
+    /* shadcn tokens — light */
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -82,9 +88,57 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* Audio Hub — Minimalist Light Mode */
+    --ah-bg:            oklch(0.982 0 0);        /* #FAFAFA off-white       */
+    --ah-surface:       oklch(1 0 0);            /* pure white cards        */
+    --ah-surface-raised:oklch(0.992 0 0);
+    --ah-overlay:       oklch(1 0 0 / 78%);
+    --ah-border:        oklch(0.91 0 0);
+    --ah-border-subtle: oklch(0.94 0 0);
+    --ah-border-strong: oklch(0.80 0 0);
+    --ah-text:          oklch(0.16 0 0);         /* #111 near-black         */
+    --ah-text-muted:    oklch(0.42 0 0);
+    --ah-text-faint:    oklch(0.58 0 0);
+    --ah-text-subtle:   oklch(0.38 0 0);
+    --ah-toggle-track:  oklch(0.88 0 0);
+    --ah-toggle-thumb:  oklch(1 0 0);
+    --ah-header-bg:     oklch(1 0 0 / 82%);
+    --ah-control-bg:    oklch(1 0 0 / 96%);
+    --ah-control-hover: oklch(0.96 0 0);
+    --ah-selection-bg:  oklch(0.88 0.02 285);
+    --ah-signal-off:    oklch(0.55 0 0);
+    --ah-focus-ring:    oklch(0.58 0.18 285 / 30%);
+    --ah-focus-ring-strong: oklch(0.52 0.18 285 / 42%);
+    --ah-speaking-ring: oklch(0.58 0.15 160 / 35%);
+    --ah-card-radius:   0.875rem;
+
+    --ah-accent:           oklch(0.54 0.19 285);
+    --ah-accent-hover:     oklch(0.47 0.19 285);
+    --ah-accent-glow:      oklch(0.54 0.19 285 / 10%);
+    --ah-accent-subtle:    oklch(0.54 0.19 285 / 7%);
+
+    --ah-success:          oklch(0.56 0.15 160);
+    --ah-danger:           oklch(0.55 0.20 25);
+    --ah-danger-glow:      oklch(0.55 0.20 25 / 10%);
+    --ah-danger-bg:        oklch(0.54 0.20 25);
+    --ah-danger-hover:     oklch(0.47 0.20 25);
+    --ah-danger-text:      oklch(1 0 0);
+
+    --ah-glass:            oklch(1 0 0 / 86%);
+    --ah-glass-border:     oklch(0 0 0 / 8%);
+    --ah-glass-hover:      oklch(0.98 0 0 / 92%);
+
+    --ah-shadow:           0 1px 2px oklch(0 0 0 / 5%), 0 4px 16px oklch(0 0 0 / 6%);
+    --ah-control-shadow:   0 1px 3px oklch(0 0 0 / 6%), 0 8px 28px oklch(0 0 0 / 8%);
+
+    --ah-slider-track:     oklch(0.88 0 0);
+    --ah-slider-fill:      oklch(0.54 0.19 285);
 }
 
+/* ── Dark Mode — overrides (MUST come after :root) ──────────────────────── */
 .dark {
+    /* shadcn tokens — dark */
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -117,22 +171,20 @@
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
 
-    /* ── Audio Hub — Minimalist Dark Mode ─────────────────────────────────
+    /* Audio Hub — Minimalist Dark Mode
        Deep grey (not pure black) for reduced eye strain.
-       Soft white text (not pure white) for long-read comfort.
-       Single violet accent, restrained glow, soft shadows.
-       ─────────────────────────────────────────────────────────────────────── */
-    --ah-bg:            oklch(0.155 0.003 285);   /* #0F0F10 — deep grey  */
-    --ah-surface:       oklch(0.195 0.003 285);   /* cards, panels         */
-    --ah-surface-raised:oklch(0.235 0.003 285);   /* elevated surfaces     */
+       Soft white text (not pure white) for long-read comfort. */
+    --ah-bg:            oklch(0.155 0.003 285);
+    --ah-surface:       oklch(0.195 0.003 285);
+    --ah-surface-raised:oklch(0.235 0.003 285);
     --ah-overlay:       oklch(0.15 0.003 285 / 72%);
-    --ah-border:        oklch(1 0 0 / 8%);        /* hair-line borders     */
-    --ah-border-subtle: oklch(1 0 0 / 5%);        /* separators            */
-    --ah-border-strong: oklch(1 0 0 / 16%);       /* hover border          */
-    --ah-text:          oklch(0.93 0 0);          /* #EDEDED soft white    */
-    --ah-text-muted:    oklch(0.70 0 0);          /* secondary             */
-    --ah-text-faint:    oklch(0.55 0 0);          /* tertiary              */
-    --ah-text-subtle:   oklch(0.45 0 0);          /* placeholders          */
+    --ah-border:        oklch(1 0 0 / 8%);
+    --ah-border-subtle: oklch(1 0 0 / 5%);
+    --ah-border-strong: oklch(1 0 0 / 16%);
+    --ah-text:          oklch(0.93 0 0);
+    --ah-text-muted:    oklch(0.70 0 0);
+    --ah-text-faint:    oklch(0.55 0 0);
+    --ah-text-subtle:   oklch(0.45 0 0);
     --ah-toggle-track:  oklch(0.26 0 0);
     --ah-toggle-thumb:  oklch(0.12 0 0);
     --ah-header-bg:     oklch(0.155 0.003 285 / 72%);
@@ -143,9 +195,7 @@
     --ah-focus-ring:    oklch(0.70 0.16 285 / 35%);
     --ah-focus-ring-strong: oklch(0.75 0.16 285 / 45%);
     --ah-speaking-ring: oklch(0.70 0.16 160 / 35%);
-    --ah-card-radius:   0.875rem;
 
-    /* Single accent — restrained violet */
     --ah-accent:           oklch(0.70 0.17 285);
     --ah-accent-hover:     oklch(0.64 0.17 285);
     --ah-accent-glow:      oklch(0.70 0.17 285 / 10%);
@@ -158,68 +208,15 @@
     --ah-danger-hover:     oklch(0.52 0.20 25);
     --ah-danger-text:      oklch(1 0 0);
 
-    /* Glass — subtle, no over-blur */
     --ah-glass:            oklch(0.19 0.003 285 / 76%);
     --ah-glass-border:     oklch(1 0 0 / 8%);
     --ah-glass-hover:      oklch(0.22 0.003 285 / 84%);
 
-    /* Soft two-layer shadows — no glows */
     --ah-shadow:           0 1px 2px oklch(0 0 0 / 20%), 0 8px 24px oklch(0 0 0 / 18%);
     --ah-control-shadow:   0 1px 2px oklch(0 0 0 / 24%), 0 12px 32px oklch(0 0 0 / 24%);
 
     --ah-slider-track:     oklch(0.28 0 0);
     --ah-slider-fill:      oklch(0.70 0.17 285);
-}
-
-/* ── Light Mode — Minimalist off-white, high-contrast text ─────────────── */
-:root {
-    --ah-bg:            oklch(0.982 0 0);        /* #FAFAFA off-white       */
-    --ah-surface:       oklch(1 0 0);            /* pure white cards        */
-    --ah-surface-raised:oklch(0.992 0 0);
-    --ah-overlay:       oklch(1 0 0 / 78%);
-    --ah-border:        oklch(0.91 0 0);         /* clear hair-line         */
-    --ah-border-subtle: oklch(0.94 0 0);
-    --ah-border-strong: oklch(0.80 0 0);
-    --ah-text:          oklch(0.16 0 0);         /* #111 near-black         */
-    --ah-text-muted:    oklch(0.42 0 0);         /* strong for outdoor read */
-    --ah-text-faint:    oklch(0.58 0 0);
-    --ah-text-subtle:   oklch(0.38 0 0);
-    --ah-toggle-track:  oklch(0.88 0 0);
-    --ah-toggle-thumb:  oklch(1 0 0);
-    --ah-header-bg:     oklch(1 0 0 / 82%);
-    --ah-control-bg:    oklch(1 0 0 / 96%);
-    --ah-control-hover: oklch(0.96 0 0);
-    --ah-selection-bg:  oklch(0.88 0.02 285);
-    --ah-signal-off:    oklch(0.55 0 0);
-    --ah-focus-ring:    oklch(0.58 0.18 285 / 30%);
-    --ah-focus-ring-strong: oklch(0.52 0.18 285 / 42%);
-    --ah-speaking-ring: oklch(0.58 0.15 160 / 35%);
-    --ah-card-radius:   0.875rem;
-
-    /* Single accent — restrained violet */
-    --ah-accent:           oklch(0.54 0.19 285);
-    --ah-accent-hover:     oklch(0.47 0.19 285);
-    --ah-accent-glow:      oklch(0.54 0.19 285 / 10%);
-    --ah-accent-subtle:    oklch(0.54 0.19 285 / 7%);
-
-    --ah-success:          oklch(0.56 0.15 160);
-    --ah-danger:           oklch(0.55 0.20 25);
-    --ah-danger-glow:      oklch(0.55 0.20 25 / 10%);
-    --ah-danger-bg:        oklch(0.54 0.20 25);
-    --ah-danger-hover:     oklch(0.47 0.20 25);
-    --ah-danger-text:      oklch(1 0 0);
-
-    /* Glass */
-    --ah-glass:            oklch(1 0 0 / 86%);
-    --ah-glass-border:     oklch(0 0 0 / 8%);
-    --ah-glass-hover:      oklch(0.98 0 0 / 92%);
-
-    /* Soft shadows — airy, never harsh */
-    --ah-shadow:           0 1px 2px oklch(0 0 0 / 5%), 0 4px 16px oklch(0 0 0 / 6%);
-    --ah-control-shadow:   0 1px 3px oklch(0 0 0 / 6%), 0 8px 28px oklch(0 0 0 / 8%);
-
-    --ah-slider-track:     oklch(0.88 0 0);
-    --ah-slider-fill:      oklch(0.54 0.19 285);
 }
 
 /* ── Tailwind v4 theme extension ─────────────────────────────────────────── */
