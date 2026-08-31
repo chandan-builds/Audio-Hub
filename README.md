@@ -273,3 +273,5 @@ Make sure:
 - TURN credentials are configured for production calls across restrictive networks.
 
 <!-- Automated README history sample f2a14e14/1/1; assigned commit date 2026-08-31T09:40:00+05:30. -->
+
+<!-- Automated README history sample f2a14e14/1/2; assigned commit date 2026-08-31T10:18:00+05:30. -->
